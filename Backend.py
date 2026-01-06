@@ -5,6 +5,11 @@ import json
 import yt_dlp
 import subprocess
 import pandas as pd
+import requests
+from mutagen.mp3 import MP3
+from mutagen.id3 import ID3, APIC, error
+from mutagen.flac import FLAC, Picture
+from mutagen.mp4 import MP4, MP4Cover
 
 def GetAppDataFolder():
     home = Path.home()
@@ -62,13 +67,63 @@ with open(ConfigFile, 'r', encoding='utf-8') as f:
 
 SongDF = pd.read_csv(SongFile)
 
+def DownloadCover(URL, title):
+    ImagePath = AppData/"Images"/ (title+'.jpg')
+    url = f'https://img.youtube.com/vi/{URL[32:43]}/hqdefault.jpg'
+    with open(ImagePath, 'wb') as fil:
+        fil.write(requests.get(url).content)
+
+
+def AddCoverArt(SongPath, ImgPath, ext):
+    with open(ImgPath, 'rb') as ImgFil:
+        Img = ImgFil.read()
+
+    # ID3 Tags
+    if ext == 'mp3':
+        try:
+            audio = MP3(SongPath, ID3=ID3)
+            # Add ID3 tag if it doesn't exist
+            try:
+                audio.add_tags()
+            except error:
+                pass
+            
+            audio.tags.add(APIC(
+                encoding=3,  # UTF-8
+                mime='image/jpeg',
+                type=3,      # 3 is for album front cover
+                desc='Cover',
+                data=Img
+            ))
+            audio.save()
+        except Exception as e:
+            print(f"Failed to tag MP3: {e}")
+
+    elif ext == 'flac':
+        audio = FLAC(SongPath)
+        image = Picture()
+        image.type = 3
+        image.mime = "image/jpeg"
+        image.desc = "front cover"
+        image.data = Img
+        audio.add_picture(image)
+        audio.save()
+
+    # MP4 Container
+    elif ext == 'm4a':
+        audio = MP4(SongPath)
+        audio["covr"] = [MP4Cover(Img, imageformat=MP4Cover.FORMAT_JPEG)]
+        audio.save()
+
+    else:
+        print("Unsupported file extension")
+        return
+
 def DownloadSong(URL, title, encoding = 'mp3'):
     CODEC_MAP = {
         'mp3': 'libmp3lame',
         'flac': 'flac',
-        'wav': 'pcm_s16le',   # Standard CD quality
-        'aac': 'aac',
-        'ogg': 'libvorbis'
+        'm4a': 'aac',
     }
     TempFilename = f"{title}.webm" 
     TempPath = AppData / TempFilename
@@ -85,16 +140,13 @@ def DownloadSong(URL, title, encoding = 'mp3'):
         video.download([URL])
     except:
         print("Failed to download "+title)
-    
-    print(f"Converting to {encoding}...")
+        return False
         
     # Build the ffmpeg command
     # -y: Overwrite output if it exists
     # -i: Input file
-    # -metadata title="...": Sets the internal song title tag
     # -c:a: Audio codec
     # -vn: No video
-    # -b:a 192k: Bitrate
     cmd = [
         'ffmpeg', '-y', 
         '-i', str(TempPath),
@@ -104,9 +156,8 @@ def DownloadSong(URL, title, encoding = 'mp3'):
         str(FinalPath)
     ]
 
-    # For MP3, we might want to specify bitrate or VBR quality
     if encoding == 'mp3':
-        cmd.extend(['-q:a', '2']) # VBR quality setting (approx 190-250kbps)
+        cmd.extend(['-q:a', '2'])
 
     try:
         # Run ffmpeg - capture_output hides logs
@@ -115,6 +166,10 @@ def DownloadSong(URL, title, encoding = 'mp3'):
         
     except subprocess.CalledProcessError as e:
         print(f"Conversion failed: {e.stderr.decode()}")
+        return False
+    
+    DownloadCover(URL, title)
+    AddCoverArt(FinalPath, AppData/"Images"/ (title+'.jpg'), encoding)
 
 def SaveSongfile():
     SongDF.to_csv(SongFile, index=False)
@@ -124,3 +179,12 @@ def AddSongToSongfile(title, URL):
     row = pd.DataFrame([{"title": title, "URL": URL}])
     SongDF = pd.concat([SongDF, row], ignore_index=True)
     SaveSongfile()
+
+def GetUndownloadedSongs():
+    songs = SongDF['title'].tolist()
+    downloaded = [x.split('.') for x in os.listdir(MusicDir)]
+    return [x for x in songs if x not in downloaded]
+
+for s in GetUndownloadedSongs():
+    url = SongDF.loc[SongDF['title'] == s, 'URL'].iloc[0]
+    DownloadSong(url, s)
