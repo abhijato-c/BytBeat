@@ -55,7 +55,7 @@ if not ConfigFile.exists():
 if not SongFile.exists():
     SongFile.touch()
     with open(SongFile, 'w', encoding='utf-8') as f:
-        f.write("title,URL\n")
+        f.write("title,URL,artist,genre\n")
 
 with open(ConfigFile, 'r', encoding='utf-8') as f:
     Config = json.load(f)
@@ -119,7 +119,7 @@ def AddCoverArt(SongPath, ImgPath, ext):
         print("Unsupported file extension")
         return
 
-def DownloadSong(URL, title, encoding = 'mp3'):
+def DownloadSong(URL, title, encoding = 'mp3', artist = '', genre = ''):
     CODEC_MAP = {
         'mp3': 'libmp3lame',
         'flac': 'flac',
@@ -143,14 +143,12 @@ def DownloadSong(URL, title, encoding = 'mp3'):
         return False
         
     # Build the ffmpeg command
-    # -y: Overwrite output if it exists
-    # -i: Input file
-    # -c:a: Audio codec
-    # -vn: No video
     cmd = [
         'ffmpeg', '-y', 
         '-i', str(TempPath),
         '-metadata', f'title={title}',
+        '-metadata', f'artist={artist}',
+        '-metadata', f'genre={genre}',
         '-c:a', CODEC_MAP[encoding],
         '-vn',
         str(FinalPath)
@@ -174,9 +172,9 @@ def DownloadSong(URL, title, encoding = 'mp3'):
 def SaveSongfile():
     SongDF.to_csv(SongFile, index=False)
 
-def AddSongToSongfile(title, URL):
+def AddSongToSongfile(title, URL, artist = '', genre = ''):
     global SongDF
-    row = pd.DataFrame([{"title": title, "URL": URL}])
+    row = pd.DataFrame([{"title": title, "URL": URL, 'artist': artist, 'genre': genre}])
     SongDF = pd.concat([SongDF, row], ignore_index=True)
     SaveSongfile()
 
@@ -184,7 +182,3 @@ def GetUndownloadedSongs():
     songs = SongDF['title'].tolist()
     downloaded = [x.split('.') for x in os.listdir(MusicDir)]
     return [x for x in songs if x not in downloaded]
-
-for s in GetUndownloadedSongs():
-    url = SongDF.loc[SongDF['title'] == s, 'URL'].iloc[0]
-    DownloadSong(url, s)
