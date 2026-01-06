@@ -44,6 +44,10 @@ AppData.mkdir(parents=True, exist_ok=True)
 SongFile = AppData / "Songfile.csv"
 ConfigFile = AppData / "config.json"
 
+for file in os.listdir(AppData):
+    if file.endswith('.webm'):
+        Path.unlink(AppData / file)
+
 default_config = {
     "Music_Directory": str(GetMusicDir()),
 }
@@ -65,7 +69,7 @@ with open(ConfigFile, 'r', encoding='utf-8') as f:
     else:
         MusicDir = GetMusicDir()
 
-SongDF = pd.read_csv(SongFile)
+SongDF = pd.read_csv(SongFile).fillna("")
 
 def DownloadCover(URL, title):
     ImagePath = AppData/"Images"/ (title+'.jpg')
@@ -180,5 +184,22 @@ def AddSongToSongfile(title, URL, artist = '', genre = ''):
 
 def GetUndownloadedSongs():
     songs = SongDF['title'].tolist()
-    downloaded = [x.split('.') for x in os.listdir(MusicDir)]
+    downloaded = [x.split('.')[0] for x in os.listdir(MusicDir)]
     return [x for x in songs if x not in downloaded]
+
+def DeleteSongFromDisk(title):
+    for ext in ['.mp3', '.flac', '.m4a']:
+        fpath = MusicDir / f"{title}{ext}"
+        if fpath.exists():
+            try: os.remove(fpath)
+            except Exception as e: print(f"Error deleting file: {e}")
+
+def UpdateSongDetails(OldTitle, NewTitle = None, artist = None, genre = None):
+    global SongDF
+    idx = SongDF.index[SongDF['title'] == OldTitle].tolist()
+    if not idx: return
+
+    if NewTitle != None: SongDF.at[idx[0], 'title'] = NewTitle
+    if artist != None: SongDF.at[idx[0], 'artist'] = artist
+    if genre != None: SongDF.at[idx[0], 'genre'] = genre
+    SaveSongfile()
