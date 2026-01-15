@@ -67,7 +67,7 @@ with open(ConfigFile, 'r', encoding='utf-8') as f:
     else:
         MusicDir = GetMusicDir()
 
-SongDF = pd.read_csv(SongFile).fillna("")
+SongDF = pd.read_csv(SongFile).fillna("").sort_values(by='Title').reset_index(drop=True)
 
 def URLtoID(URL):
     return URL.split('&')[0].split('watch?v=')[-1]
@@ -171,7 +171,7 @@ def DownloadSong(id, title, encoding = 'mp3', artist = '', genre = ''):
         return 0
     
     # Set status to Downloaded
-    SongDF.loc[SongDF['title'] == title, 'status'] = 'Downloaded'
+    SongDF.loc[SongDF['Title'] == title, 'Status'] = 'Downloaded'
     SaveSongfile()
 
     try:
@@ -181,17 +181,15 @@ def DownloadSong(id, title, encoding = 'mp3', artist = '', genre = ''):
     except:
         return 1
 
-def SaveSongfile():
-    SongDF.to_csv(SongFile, index=False)
-
 def AddSongToSongfile(title, URL, artist = '', genre = ''):
     global SongDF
     id = URLtoID(URL)
-    row = pd.DataFrame([{"title": title, "VideoID": id, 'artist': artist, 'genre': genre, 'status': 'Pending Download'}])
+    row = pd.DataFrame([{"Title": title, "VideoID": id, 'Artist': artist, 'Genre': genre, 'Status': 'Pending Download'}])
     SongDF = pd.concat([SongDF, row], ignore_index=True)
     SaveSongfile()
 
 def DeleteSongFromDisk(title):
+    SongDF.loc[SongDF['Title'] == title, 'Status'] = 'Pending Download'
     for ext in ['.mp3', '.flac', '.m4a']:
         fpath = MusicDir / f"{title}{ext}"
         if fpath.exists():
@@ -200,12 +198,12 @@ def DeleteSongFromDisk(title):
 
 def UpdateSongDetails(title, NewTitle = None, artist = None, genre = None, URL = None):
     global SongDF
-    idx = SongDF.index[SongDF['title'] == title].tolist()
+    idx = SongDF.index[SongDF['Title'] == title].tolist()
     if not idx: return
 
-    if NewTitle != None: SongDF.at[idx[0], 'title'] = NewTitle
-    if artist != None: SongDF.at[idx[0], 'artist'] = artist
-    if genre != None: SongDF.at[idx[0], 'genre'] = genre
+    if NewTitle != None: SongDF.at[idx[0], 'Title'] = NewTitle
+    if artist != None: SongDF.at[idx[0], 'Artist'] = artist
+    if genre != None: SongDF.at[idx[0], 'Genre'] = genre
 
     # Update metadata
     for ext in ['mp3', 'flac', 'm4a']:
@@ -216,9 +214,9 @@ def UpdateSongDetails(title, NewTitle = None, artist = None, genre = None, URL =
         
         cmd = [
             'ffmpeg', '-y', '-i', str(InpPath),
-            '-metadata', f'title={SongDF.loc[SongDF['title'] == NewTitle, 'title'].item()}',
-            '-metadata', f'artist={SongDF.loc[SongDF['title'] == NewTitle, 'artist'].item()}',
-            '-metadata', f'genre={SongDF.loc[SongDF['title'] == NewTitle, 'genre'].item()}',
+            '-metadata', f'title={SongDF.loc[SongDF['Title'] == NewTitle, 'Title'].item()}',
+            '-metadata', f'artist={SongDF.loc[SongDF['Title'] == NewTitle, 'Artist'].item()}',
+            '-metadata', f'genre={SongDF.loc[SongDF['Title'] == NewTitle, 'Genre'].item()}',
             '-c', 'copy', str(TempPath)
         ]
         
@@ -226,9 +224,12 @@ def UpdateSongDetails(title, NewTitle = None, artist = None, genre = None, URL =
         os.replace(TempPath, InpPath)
     
     id = URLtoID(URL) if URL else None
-    OldID = SongDF.loc[SongDF['title'] == NewTitle, 'VideoID'].item()
+    OldID = SongDF.loc[SongDF['Title'] == NewTitle, 'VideoID'].item()
     if id and id!=OldID:
         SongDF.at[idx[0], 'VideoID'] = id
-        SongDF.at[idx[0], 'status'] = 'Changed'
+        SongDF.at[idx[0], 'Status'] = 'Changed'
 
     SaveSongfile()
+
+def SaveSongfile():
+    SongDF.sort_values(by='Title').reset_index(drop=True).to_csv(SongFile, index=False)
