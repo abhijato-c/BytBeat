@@ -1,0 +1,5 @@
+yt_dlp
+pandas
+requests
+mutagen
+PyQt6
