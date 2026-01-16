@@ -13,7 +13,7 @@ class DownloadWorker(QThread):
     Finished = pyqtSignal()          
 
     def run(self):
-        to_download = bk.SongDF[bk.SongDF['status'] != 'Downloaded']
+        to_download = bk.SongDF[bk.SongDF['Status'] != 'Downloaded']
         if to_download.empty:
             self.ProgressUpdate.emit("All songs are already downloaded.")
             self.Finished.emit()
@@ -58,8 +58,21 @@ class AddSongDialog(QDialog):
         self.layout.addWidget(self.status_label)
 
         FormLayout = QVBoxLayout()
-        self.TitleInput = self.CreateInput("Title (Required):", FormLayout)
         self.URLInput = self.CreateInput("YouTube URL (Required):", FormLayout)
+
+        TitleHeader = QHBoxLayout()
+        TitleHeader.addWidget(QLabel("Title (Required):"))
+        TitleHeader.addStretch() 
+
+        self.AutofillBtn = QPushButton("Autofill")
+        self.AutofillBtn.setFixedWidth(80)
+        self.AutofillBtn.clicked.connect(self.Autofill)
+        TitleHeader.addWidget(self.AutofillBtn)
+
+        FormLayout.addLayout(TitleHeader)
+        self.TitleInput = QLineEdit()
+        FormLayout.addWidget(self.TitleInput)
+
         self.ArtistInput = self.CreateInput("Artist (Optional):", FormLayout)
         self.GenreInput = self.CreateInput("Genre (Optional):", FormLayout)
         self.layout.addLayout(FormLayout)
@@ -82,6 +95,27 @@ class AddSongDialog(QDialog):
         layout.addWidget(lbl)
         layout.addWidget(inp)
         return inp
+    
+    def Autofill(self):
+        url = self.URLInput.text().strip()
+
+        if not url:
+            self.status_label.setStyleSheet("color: #f44336;")
+            self.status_label.setText("Error: URL required for autofill!")
+            return
+
+        id = bk.URLtoID(url)
+        try:
+            title, author = bk.GetSongMetadata(id)
+        except Exception as e:
+            self.status_label.setStyleSheet("color: #f44336;")
+            self.status_label.setText(f"Error fetching metadata")
+            return
+        
+        self.TitleInput.setText(title)
+        self.ArtistInput.setText(author)
+        self.status_label.setStyleSheet("color: #4CAF50;")
+        self.status_label.setText("Autofill successful!")
 
     def SaveSong(self):
         title = self.TitleInput.text().strip()

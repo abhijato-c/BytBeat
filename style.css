@@ -42,7 +42,11 @@ QTableCornerButton::section {
     background-color: #444;
     border: 1px solid #555;
 }
-QHeaderView::section { background-color: #444; padding: 4px; border: 1px solid #555; }
+QHeaderView::section { 
+    background-color: #444; 
+    padding: 4px; 
+    border: 1px solid #555; 
+}
 
 /* Input Fields */
 QLineEdit, QTextEdit { 

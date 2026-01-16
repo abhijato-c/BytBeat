@@ -1,15 +1,16 @@
-from pathlib import Path
-import platform
-import os
-import json
-import yt_dlp
-import subprocess
+from yt_dlp import YoutubeDL
 import pandas as pd
 import requests
+from pytube import YouTube
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC, error
 from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
+import os
+import json
+from pathlib import Path
+import subprocess
+import platform
 
 def GetAppDataFolder():
     home = Path.home()
@@ -41,12 +42,13 @@ def GetMusicDir():
 AppData = GetAppDataFolder()
 AppData.mkdir(parents=True, exist_ok=True)
 (AppData / "Images").mkdir(exist_ok=True)
+TempFolder = (AppData / "Temp")
+TempFolder.mkdir(exist_ok=True)
 SongFile = AppData / "Songfile.csv"
 ConfigFile = AppData / "config.json"
 
-for file in os.listdir(AppData):
-    if file.endswith('.webm'):
-        Path.unlink(AppData / file)
+for file in os.listdir(TempFolder):
+    Path.unlink(TempFolder / file)
 
 default_config = {"Music_Directory": str(GetMusicDir())}
 
@@ -130,13 +132,13 @@ def DownloadSong(id, title, encoding = 'mp3', artist = '', genre = ''):
         'm4a': 'aac',
     }
     TempFilename = f"{title}.webm" 
-    TempPath = AppData / TempFilename
+    TempPath = TempFolder / TempFilename
     FinalPath = MusicDir / f"{title}.{encoding}"
 
     try:
-        video = yt_dlp.YoutubeDL({
+        video = YoutubeDL({
             'format':'251', #Highest quality as far as I've found out
-            'paths':{'home':str(AppData)}, #Download the temp song before converting
+            'paths':{'home':str(TempFolder)}, #Download the temp song before converting
             'outtmpl':TempFilename,
             'quiet': True,
             'no_warnings': True
@@ -210,7 +212,7 @@ def UpdateSongDetails(title, NewTitle = None, artist = None, genre = None, URL =
         InpPath = MusicDir / f"{title}.{ext}"
         if not InpPath.exists():
             continue
-        TempPath = AppData / f"{title}.{ext}"
+        TempPath = TempFolder / f"{title}.{ext}"
         
         cmd = [
             'ffmpeg', '-y', '-i', str(InpPath),
@@ -230,6 +232,12 @@ def UpdateSongDetails(title, NewTitle = None, artist = None, genre = None, URL =
         SongDF.at[idx[0], 'Status'] = 'Changed'
 
     SaveSongfile()
+
+def GetSongMetadata(id):
+    url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={id}&format=json"
+    resp = requests.get(url, timeout=2)
+    data = resp.json()
+    return [data.get("title"), data.get("author_name")]
 
 def SaveSongfile():
     SongDF.sort_values(by='Title').reset_index(drop=True).to_csv(SongFile, index=False)
