@@ -40,9 +40,12 @@ def GetMusicDir():
 
 AppData = GetAppDataFolder()
 AppData.mkdir(parents=True, exist_ok=True)
-(AppData / "Images").mkdir(exist_ok=True)
+
+ImageDir = (AppData / "Images")
 TempFolder = (AppData / "Temp")
+ImageDir.mkdir(exist_ok=True)
 TempFolder.mkdir(exist_ok=True)
+
 SongFile = AppData / "Songfile.csv"
 ConfigFile = AppData / "config.json"
 Config = {
@@ -80,9 +83,8 @@ def URLtoID(URL):
     return URL.split('&')[0].split('watch?v=')[-1]
 
 def DownloadCover(id, title):
-    ImagePath = AppData/"Images"/ (title+'.jpg')
     url = f'https://img.youtube.com/vi/{id}/hqdefault.jpg'
-    with open(ImagePath, 'wb') as fil:
+    with open((ImageDir / (title+'.jpg')), 'wb') as fil:
         fil.write(requests.get(url).content)
 
 def AddCoverArt(SongPath, ImgPath, ext):
@@ -180,7 +182,7 @@ def DownloadSong(id, title, encoding = 'mp3', artist = '', genre = ''):
     SaveSongfile()
 
     try:
-        ImagePath = AppData/"Images"/ (title+'.jpg')
+        ImagePath = ImageDir / (title+'.jpg')
         if not ImagePath.exists(): DownloadCover(id, title)
         AddCoverArt(FinalPath, ImagePath, encoding)
         return 2
@@ -270,6 +272,14 @@ def UpdateDefaultFormat(fmt):
     Config["Encoding"] = fmt
     with open(ConfigFile, "w") as f:
         json.dump(Config, f, indent=4)
+
+def OpenImageDir():
+    path = str(ImageDir)
+    system = platform.system()
+
+    if system == "Windows": os.startfile(path)
+    elif system == "Darwin": subprocess.run(["open", path])
+    else: subprocess.run(["xdg-open", path])
 
 def SaveSongfile():
     SongDF.sort_values(by='Title').reset_index(drop=True).to_csv(SongFile, index=False)

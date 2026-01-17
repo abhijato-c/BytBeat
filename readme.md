@@ -33,10 +33,7 @@ The app doesn't directly sync to a folder, instead, it maintains a `.csv` databa
 
 4. **Update Images**: Click on the Config tab -> open images folder. Edit and save the cover art of any song you wish, all images are stored in that folder. Once you are done editing the images, go to Actions -> Update images. This reapplies cover art to all of your songs.
 
-5. **Delete Songs**: Select the song(s) you want to delete, and then go to Song -> Delete. You will find 3 options:
-    - **Delete from list**: This removes the song from the list, but it remains in the folder. You can add it back into the list by the Add new   song action.
-    - **Delete from folder**: The song remains in the list with its metadata and cover art, but the downloaded song is deleted. The song is marked as `Pending Download`, so clicking on Download all pending will redownload it. Useful when you want to redownload a song.
-    - **Delete from folder and list**: This will completely get rid of the song, both from the list and the downloads. This is what you'd use if you want to compeltely get rid of a song.
+5. **Delete Songs**: Select the song(s) you want to delete, and then go to Song -> Delete. You can choose to delete it from disk as well.
 
 ---
 

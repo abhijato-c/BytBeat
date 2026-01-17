@@ -67,20 +67,20 @@ QMenu {
 
 /* Buttons */
 QPushButton { 
-    background-color: #555; border: 1px solid #666; 
-    border-radius: 4px; padding: 6px 12px; min-width: 80px;
+    background-color: #555; 
+    border: 1px solid #666; 
+    border-radius: 4px; 
+    padding: 6px 12px; 
+    min-width: 80px;
 }
 QPushButton:hover { background-color: #666; }
 QPushButton:pressed { background-color: #444; }
 QPushButton:disabled { background-color: #333; color: #777; border: 1px solid #444; }
 
-QPushButton[class="success"] { background-color: #2e7d32; border-color: #1b5e20; }
-QPushButton[class="success"]:hover { background-color: #388e3c; }
+QPushButton[class="success"] { background-color: hsl(120, 50%, 30%); border-color: hsl(120, 50%, 15%); }
+QPushButton[class="success"]:hover { background-color: hsl(120, 60%, 40%); }
+QPushButton[class="success"]:disabled { background-color: hsl(120, 30%, 15%); color: #555; border-color: hsl(120, 30%, 5%); }
 
-QPushButton[class="danger"] { background-color: rgb(200, 40, 40); border-color: rgb(150, 20, 20); }
+QPushButton[class="danger"] { background-color: rgb(200, 40, 40); border-color: rgb(100, 20, 20); }
 QPushButton[class="danger"]:hover { background-color: rgb(245, 60, 60); }
 QPushButton[class="danger"]:disabled { background-color: rgb(70, 20, 20); color: #555; border-color: rgb(40, 10, 10); }
-
-QPushButton[class="danger_dark"] { background-color: rgb(150, 30, 30); border-color: rgb(100, 15, 15); }
-QPushButton[class="danger_dark"]:hover { background-color: rgb(190, 35, 35); }
-QPushButton[class="danger_dark"]:disabled { background-color: rgb(70, 20, 20); color: #555; border-color: rgb(40, 10, 10); }

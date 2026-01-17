@@ -6,7 +6,7 @@ from TaskThreads import DownloadWorker, ImageWorker
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, 
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox,
     QPushButton, QGroupBox, QMessageBox, QAbstractItemView, QStatusBar, QFileDialog, QMenu, QWidgetAction,
 )
 
@@ -109,8 +109,9 @@ class MusicManagerWindow(QMainWindow):
         # Config Menu
         ConfigMenu = self.menuBar().addMenu("Config")
 
-        CreateMenuWidget(ConfigMenu, "Change Music Directory", "standard", self.ChangeDownloadDir)
-        ChangeFormatBtn = CreateMenuWidget(ConfigMenu, "Change Default Format ->", "standard", ShowFormatMenu, False)
+        CreateMenuWidget(ConfigMenu, "Change Music Folder", "standard", self.ChangeDownloadDir)
+        CreateMenuWidget(ConfigMenu, "Open Images Folder", "standard", lambda: bk.OpenImageDir())
+        ChangeFormatBtn = CreateMenuWidget(ConfigMenu, "Change Music Format ->", "standard", ShowFormatMenu, False)
 
         FormatMenu = QMenu(ConfigMenu)
         FormatGroup = QActionGroup(self)
@@ -211,13 +212,23 @@ class MusicManagerWindow(QMainWindow):
     def DeleteSong(self):
         rows = self.table.selectionModel().selectedRows()
         if not rows: return
-        reply = QMessageBox.question(self, 'Confirm Delete', 
-                                   f"Are you sure you want to delete {len(rows)} item(s)?",
-                                   QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if reply == QMessageBox.StandardButton.No: return
+
+        # Confirmation dialog
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Icon.Warning)
+        msg.setWindowTitle("Confirm Deletion")
+        msg.setText(f"Are you sure you want to delete {len(rows)} selected song(s)?")
+        msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        msg.setDefaultButton(QMessageBox.StandardButton.No)
+        DiskDelCB = QCheckBox("Also delete file(s) from disk")
+        msg.setCheckBox(DiskDelCB)
+
+        if msg.exec() == QMessageBox.StandardButton.No: return
+        DiskDelete = DiskDelCB.isChecked()
+
         titles = [self.table.item(row.row(), 0).text() for row in rows]
         for title in titles:
-            bk.DeleteSongFromDisk(title)
+            if DiskDelete: bk.DeleteSongFromDisk(title)
             bk.SongDF = bk.SongDF[bk.SongDF['Title'] != title]
         bk.SaveSongfile()
         self.RefreshList()
