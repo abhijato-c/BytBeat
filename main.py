@@ -1,187 +1,14 @@
 import sys
 import Backend as bk
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PopupDialogs import AddSongDialog, EditSongDialog
+from TaskThreads import DownloadWorker, ImageWorker
+
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QWidgetAction,
-    QPushButton, QGroupBox, QMessageBox, QDialog, QLabel, QLineEdit, QAbstractItemView, QStatusBar, QFileDialog, QMenu
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, 
+    QPushButton, QGroupBox, QMessageBox, QAbstractItemView, QStatusBar, QFileDialog, QMenu, QWidgetAction,
 )
-
-# Download Thread
-class DownloadWorker(QThread):
-    ProgressUpdate = pyqtSignal(str) 
-    RefreshList = pyqtSignal()       
-    Finished = pyqtSignal()          
-
-    def run(self):
-        PendingDownload = bk.SongDF[bk.SongDF['Status'] != 'Downloaded']
-        if PendingDownload.empty:
-            self.ProgressUpdate.emit("All songs are already downloaded.")
-            self.Finished.emit()
-            return
-
-        for _, row in PendingDownload.iterrows():
-            title = row['Title']
-            self.ProgressUpdate.emit(f"Downloading: {title}...")
-            bk.DownloadSong(row['VideoID'], title, artist=row['Artist'], genre=row['Genre'], encoding=bk.Config.get("Encoding"))
-            self.RefreshList.emit()
-
-        self.ProgressUpdate.emit("Ready")
-        self.Finished.emit()
-
-# Update Images Thread
-class ImageWorker(QThread):
-    Finished = pyqtSignal()
-
-    def run(self):
-        for _, row in bk.SongDF.iterrows():
-            ImagePath = bk.AppData / "Images" / f"{row['Title']}.jpg"
-            for ext in ['mp3', 'flac', 'm4a']:
-                SongPath = bk.MusicDir / f"{row['Title']}.{ext}"
-                if SongPath.exists() and ImagePath.exists():
-                    bk.AddCoverArt(SongPath, ImagePath, ext)
-                    break
-        self.Finished.emit()
-
-# Add Song popup
-class AddSongDialog(QDialog):
-    song_added = pyqtSignal() 
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Add New Song")
-        self.setFixedSize(400, 300)
-        self.layout = QVBoxLayout(self)
-
-        self.StatusLabel = QLabel("")
-        self.StatusLabel.setStyleSheet("color: #4CAF50; font-weight: bold;")
-        self.StatusLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.layout.addWidget(self.StatusLabel)
-
-        FormLayout = QVBoxLayout()
-        self.URLInput = self.CreateInput("YouTube URL (Required):", FormLayout)
-
-        TitleHeader = QHBoxLayout()
-        TitleHeader.addWidget(QLabel("Title (Required):"))
-        TitleHeader.addStretch() 
-
-        self.AutofillBtn = QPushButton("Autofill")
-        self.AutofillBtn.setFixedWidth(80)
-        self.AutofillBtn.clicked.connect(self.Autofill)
-        TitleHeader.addWidget(self.AutofillBtn)
-
-        FormLayout.addLayout(TitleHeader)
-        self.TitleInput = QLineEdit()
-        FormLayout.addWidget(self.TitleInput)
-
-        self.ArtistInput = self.CreateInput("Artist (Optional):", FormLayout)
-        self.GenreInput = self.CreateInput("Genre (Optional):", FormLayout)
-        self.layout.addLayout(FormLayout)
-
-        ButtonBox = QHBoxLayout()
-        SaveBtn = QPushButton("Add Song")
-        SaveBtn.clicked.connect(self.SaveSong)
-        SaveBtn.setProperty("class", "success")
-
-        CloseBtn = QPushButton("Close")
-        CloseBtn.clicked.connect(self.reject) 
-
-        ButtonBox.addWidget(SaveBtn)
-        ButtonBox.addWidget(CloseBtn)
-        self.layout.addLayout(ButtonBox)
-
-    def CreateInput(self, label_text, layout):
-        lbl = QLabel(label_text)
-        inp = QLineEdit()
-        layout.addWidget(lbl)
-        layout.addWidget(inp)
-        return inp
-    
-    def Autofill(self):
-        url = self.URLInput.text().strip()
-
-        if not url:
-            self.StatusLabel.setStyleSheet("color: #f44336;")
-            self.StatusLabel.setText("Error: URL required for autofill!")
-            return
-
-        id = bk.URLtoID(url)
-        try:
-            title, author = bk.GetSongMetadata(id)
-        except Exception as e:
-            self.StatusLabel.setStyleSheet("color: #f44336;")
-            self.StatusLabel.setText(f"Error fetching metadata")
-            return
-        
-        self.TitleInput.setText(title)
-        self.ArtistInput.setText(author)
-        self.StatusLabel.setStyleSheet("color: #4CAF50;")
-        self.StatusLabel.setText("Autofill successful!")
-
-    def SaveSong(self):
-        title = self.TitleInput.text().strip()
-        url = self.URLInput.text().strip()
-        artist = self.ArtistInput.text().strip()
-        genre = self.GenreInput.text().strip()
-
-        if not title or not url:
-            self.StatusLabel.setStyleSheet("color: #f44336;")
-            self.StatusLabel.setText("Error: Title and URL are required!")
-            return
-
-        bk.AddSongToSongfile(title, url, artist, genre)
-        
-        self.StatusLabel.setStyleSheet("color: #4CAF50;")
-        self.StatusLabel.setText(f"Song '{title}' has been added.")
-        self.TitleInput.clear()
-        self.URLInput.clear()
-        self.ArtistInput.clear()
-        self.GenreInput.clear()
-        self.TitleInput.setFocus()
-        
-        self.song_added.emit()
-
-# Edit Song Popup
-class EditSongDialog(QDialog):
-    def __init__(self, title, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle(f"Edit: {title}")
-        self.setFixedSize(400, 300)
-        self.layout = QVBoxLayout(self)
-
-        row = bk.SongDF.loc[bk.SongDF['Title'] == title].iloc[0]
-        self.OriginalTitle = title
-        current_url = f"https://www.youtube.com/watch?v={row['VideoID']}"
-        
-        self.TitleInput = self.create_field("Title:", row['Title'])
-        self.URLInput = self.create_field("YouTube URL:", current_url)
-        self.ArtistInput = self.create_field("Artist:", row['Artist'])
-        self.GenreInput = self.create_field("Genre:", row['Genre'])
-
-        SaveBtn = QPushButton("Save Changes")
-        SaveBtn.setProperty("class", "success")
-        SaveBtn.clicked.connect(self.save)
-        self.layout.addWidget(SaveBtn)
-
-    def create_field(self, label, value):
-        self.layout.addWidget(QLabel(label))
-        txt = QLineEdit()
-        txt.setText(str(value))
-        self.layout.addWidget(txt)
-        return txt
-
-    def save(self):
-        NewTitle = self.TitleInput.text().strip()
-        NewArtist = self.ArtistInput.text().strip()
-        NewGenre = self.GenreInput.text().strip()
-        NewURL = self.URLInput.text().strip()
-
-        if not NewTitle:
-            QMessageBox.critical(self, "Error", "Title cannot be empty")
-            return
-
-        bk.UpdateSongDetails(self.OriginalTitle, NewTitle, NewArtist, NewGenre, NewURL)
-        self.accept()
 
 # Main Window
 class MusicManagerWindow(QMainWindow):
@@ -233,26 +60,26 @@ class MusicManagerWindow(QMainWindow):
         gb.setLayout(gb_layout)
         self.main_layout.addWidget(gb)
 
-    def CreateMenuWidget(self, menu, text, color_class, callback):
-        action = QWidgetAction(menu)
-        
-        # Container widget to handle padding/margins inside the menu
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(4, 2, 4, 2) # Button spacing inside dropdown
-        
-        btn = QPushButton(text)
-        btn.setProperty("class", color_class)
-
-        btn.clicked.connect(callback)
-        btn.clicked.connect(menu.close)
-        
-        layout.addWidget(btn)
-        action.setDefaultWidget(container)
-        menu.addAction(action)
-        return btn
     
     def SetupMenu(self):
+        def CreateMenuWidget(menu, text, color_class, callback, Close=True):
+            action = QWidgetAction(menu)
+            
+            # Container widget to handle padding/margins inside the menu
+            container = QWidget()
+            layout = QVBoxLayout(container)
+            layout.setContentsMargins(4, 2, 4, 2) # Button spacing inside dropdown
+            
+            btn = QPushButton(text)
+            btn.setProperty("class", color_class)
+
+            if Close: btn.clicked.connect(menu.close)
+            btn.clicked.connect(callback)
+            
+            layout.addWidget(btn)
+            action.setDefaultWidget(container)
+            menu.addAction(action)
+            return btn
         
         def ShowFormatMenu():
             Position = ChangeFormatBtn.mapToGlobal(ChangeFormatBtn.rect().topRight())
@@ -264,23 +91,26 @@ class MusicManagerWindow(QMainWindow):
         # Action Menu
         ActionMenu = self.menuBar().addMenu("Actions")
 
-        self.CreateMenuWidget(ActionMenu, "Add New Song", "standard", self.OpenAddSongDialog)
-        self.DownloadBtn = self.CreateMenuWidget(ActionMenu, "Download Pending", "success", self.StartDownload)
-        self.CreateMenuWidget(ActionMenu, "Update Images", "standard", self.StartImageUpdate)
+        CreateMenuWidget(ActionMenu, "Add New Song", "standard", self.OpenAddSongDialog)
+        self.DownloadBtn = CreateMenuWidget(ActionMenu, "Download Pending", "success", self.StartDownload)
+        CreateMenuWidget(ActionMenu, "Update ALL Images", "standard", lambda: self.StartImageUpdate(False, False))
+        CreateMenuWidget(ActionMenu, "Redownload ALL Images", "success", lambda: self.StartImageUpdate(False, True))
 
         # Song Menu
         self.SongMenu = self.menuBar().addMenu("Song")
 
-        self.EditSongBtn = self.CreateMenuWidget(self.SongMenu, "Edit Details", "standard", self.EditSong)
-        self.DelBtn = self.CreateMenuWidget(self.SongMenu, "Delete from List", "danger", lambda: self.DeleteSong())
-        # Disable buttons initially
-        for b in [self.EditSongBtn, self.DelBtn]: b.setEnabled(False)
+        self.EditSongBtn = CreateMenuWidget(self.SongMenu, "Edit Details", "standard", self.EditSong)
+        self.DelBtn = CreateMenuWidget(self.SongMenu, "Delete from List", "danger", lambda: self.DeleteSong())
+        self.UpdateImgBtn = CreateMenuWidget(self.SongMenu, "Update Image(s)", "standard", lambda: self.StartImageUpdate(True, False))
+        self.RedownloadImgBtn = CreateMenuWidget(self.SongMenu, "Redownload Image(s)", "success", lambda: self.StartImageUpdate(True, True))
+        
+        for b in [self.EditSongBtn, self.DelBtn, self.UpdateImgBtn]: b.setEnabled(False) # Disable buttons initially
 
         # Config Menu
         ConfigMenu = self.menuBar().addMenu("Config")
 
-        self.CreateMenuWidget(ConfigMenu, "Change Music Directory", "standard", self.ChangeDownloadDir)
-        ChangeFormatBtn = self.CreateMenuWidget(ConfigMenu, "Change Default Format  >", "standard", ShowFormatMenu)
+        CreateMenuWidget(ConfigMenu, "Change Music Directory", "standard", self.ChangeDownloadDir)
+        ChangeFormatBtn = CreateMenuWidget(ConfigMenu, "Change Default Format ->", "standard", ShowFormatMenu, False)
 
         FormatMenu = QMenu(ConfigMenu)
         FormatGroup = QActionGroup(self)
@@ -305,6 +135,8 @@ class MusicManagerWindow(QMainWindow):
         
         self.EditSongBtn.setEnabled(count == 1)
         self.DelBtn.setEnabled(count > 0)
+        self.UpdateImgBtn.setEnabled(count > 0)
+        self.RedownloadImgBtn.setEnabled(count > 0)
 
     def StartDownload(self):
         def DownloadDone():
@@ -391,13 +223,21 @@ class MusicManagerWindow(QMainWindow):
         self.RefreshList()
         self.status.showMessage(f"Deleted {len(titles)} songs.")
     
-    def StartImageUpdate(self):
+    def StartImageUpdate(self, selected=False, redownload=False):
         def UpdateDone():
             QMessageBox.information(self, "Done", "Images Updated")
             self.status.showMessage("Ready")
+
+        if selected:
+            rows = self.table.selectionModel().selectedRows()
+            titles = [self.table.item(row.row(), 0).text() for row in rows]
+        else:
+            titles = bk.SongDF['Title'].tolist()
+
+        self.status.showMessage(f"Updating images for {len(titles)} songs...")
+        QApplication.processEvents()
         
-        self.status.showMessage("Updating images")
-        self.img_worker = ImageWorker()
+        self.img_worker = ImageWorker(titles, redownload)
         self.img_worker.Finished.connect(UpdateDone)
         self.img_worker.start()
     

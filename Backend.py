@@ -94,10 +94,8 @@ def AddCoverArt(SongPath, ImgPath, ext):
         try:
             audio = MP3(SongPath, ID3=ID3)
             # Add ID3 tag if it doesn't exist
-            try:
-                audio.add_tags()
-            except error:
-                pass
+            try: audio.add_tags()
+            except error: pass
             
             audio.tags.add(APIC(
                 encoding=3,  # UTF-8
@@ -182,8 +180,9 @@ def DownloadSong(id, title, encoding = 'mp3', artist = '', genre = ''):
     SaveSongfile()
 
     try:
-        DownloadCover(id, title)
-        AddCoverArt(FinalPath, AppData/"Images"/ (title+'.jpg'), encoding)
+        ImagePath = AppData/"Images"/ (title+'.jpg')
+        if not ImagePath.exists(): DownloadCover(id, title)
+        AddCoverArt(FinalPath, ImagePath, encoding)
         return 2
     except:
         return 1
