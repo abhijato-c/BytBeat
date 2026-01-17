@@ -226,30 +226,33 @@ class MusicManagerWindow(QMainWindow):
         self.table.setAlternatingRowColors(True)
         
         self.table.itemSelectionChanged.connect(self.SelectionChanged)
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self.ShowContextMenu)
 
         gb_layout.addWidget(self.table)
         gb.setLayout(gb_layout)
         self.main_layout.addWidget(gb)
 
-    def SetupMenu(self):
-        def CreateMenuWidget(menu, text, color_class, callback):
-            action = QWidgetAction(menu)
-            
-            # Container widget to handle padding/margins inside the menu
-            container = QWidget()
-            layout = QVBoxLayout(container)
-            layout.setContentsMargins(4, 2, 4, 2) # Button spacing inside dropdown
-            
-            btn = QPushButton(text)
-            btn.setProperty("class", color_class)
+    def CreateMenuWidget(self, menu, text, color_class, callback):
+        action = QWidgetAction(menu)
+        
+        # Container widget to handle padding/margins inside the menu
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(4, 2, 4, 2) # Button spacing inside dropdown
+        
+        btn = QPushButton(text)
+        btn.setProperty("class", color_class)
 
-            btn.clicked.connect(callback)
-            btn.clicked.connect(menu.close)
-            
-            layout.addWidget(btn)
-            action.setDefaultWidget(container)
-            menu.addAction(action)
-            return btn
+        btn.clicked.connect(callback)
+        btn.clicked.connect(menu.close)
+        
+        layout.addWidget(btn)
+        action.setDefaultWidget(container)
+        menu.addAction(action)
+        return btn
+    
+    def SetupMenu(self):
         
         def ShowFormatMenu():
             Position = ChangeFormatBtn.mapToGlobal(ChangeFormatBtn.rect().topRight())
@@ -261,25 +264,23 @@ class MusicManagerWindow(QMainWindow):
         # Action Menu
         ActionMenu = self.menuBar().addMenu("Actions")
 
-        CreateMenuWidget(ActionMenu, "Add New Song", "standard", self.OpenAddSongDialog)
-        self.DownloadBtn = CreateMenuWidget(ActionMenu, "Download Pending", "success", self.StartDownload)
-        CreateMenuWidget(ActionMenu, "Update Images", "standard", self.StartImageUpdate)
+        self.CreateMenuWidget(ActionMenu, "Add New Song", "standard", self.OpenAddSongDialog)
+        self.DownloadBtn = self.CreateMenuWidget(ActionMenu, "Download Pending", "success", self.StartDownload)
+        self.CreateMenuWidget(ActionMenu, "Update Images", "standard", self.StartImageUpdate)
 
         # Song Menu
-        SongMenu = self.menuBar().addMenu("Song")
+        self.SongMenu = self.menuBar().addMenu("Song")
 
-        self.EditSongBtn = CreateMenuWidget(SongMenu, "Edit Details", "standard", self.EditSong)
-        self.DelListBtn = CreateMenuWidget(SongMenu, "Delete from List", "danger", lambda: self.DeleteSong("list"))
-        self.DelFolderBtn = CreateMenuWidget(SongMenu, "Delete from Folder", "danger", lambda: self.DeleteSong("folder"))
-        self.DelBothBtn = CreateMenuWidget(SongMenu, "Delete from Folder and List", "danger_dark", lambda: self.DeleteSong("both"))
+        self.EditSongBtn = self.CreateMenuWidget(self.SongMenu, "Edit Details", "standard", self.EditSong)
+        self.DelBtn = self.CreateMenuWidget(self.SongMenu, "Delete from List", "danger", lambda: self.DeleteSong())
         # Disable buttons initially
-        for b in [self.EditSongBtn, self.DelListBtn, self.DelFolderBtn, self.DelBothBtn]: b.setEnabled(False)
+        for b in [self.EditSongBtn, self.DelBtn]: b.setEnabled(False)
 
         # Config Menu
         ConfigMenu = self.menuBar().addMenu("Config")
 
-        CreateMenuWidget(ConfigMenu, "Change Music Directory", "standard", self.ChangeDownloadDir)
-        ChangeFormatBtn = CreateMenuWidget(ConfigMenu, "Change Default Format  >", "standard", ShowFormatMenu)
+        self.CreateMenuWidget(ConfigMenu, "Change Music Directory", "standard", self.ChangeDownloadDir)
+        ChangeFormatBtn = self.CreateMenuWidget(ConfigMenu, "Change Default Format  >", "standard", ShowFormatMenu)
 
         FormatMenu = QMenu(ConfigMenu)
         FormatGroup = QActionGroup(self)
@@ -293,16 +294,17 @@ class MusicManagerWindow(QMainWindow):
             if fmt == CurrentFormat: action.setChecked(True)
             FormatGroup.addAction(action)
             FormatMenu.addAction(action)
+    
+    def ShowContextMenu(self, pos):
+        if not self.table.selectionModel().hasSelection(): return
+        self.SongMenu.exec(self.table.viewport().mapToGlobal(pos))
 
     def SelectionChanged(self):
         selected = self.table.selectionModel().selectedRows()
         count = len(selected)
         
-        # Update Menu Actions instead of Buttons
         self.EditSongBtn.setEnabled(count == 1)
-        self.DelListBtn.setEnabled(count > 0)
-        self.DelFolderBtn.setEnabled(count > 0)
-        self.DelBothBtn.setEnabled(count > 0)
+        self.DelBtn.setEnabled(count > 0)
 
     def StartDownload(self):
         def DownloadDone():
@@ -374,7 +376,7 @@ class MusicManagerWindow(QMainWindow):
         if dlg.exec():
             self.RefreshList()
 
-    def DeleteSong(self, mode):
+    def DeleteSong(self):
         rows = self.table.selectionModel().selectedRows()
         if not rows: return
         reply = QMessageBox.question(self, 'Confirm Delete', 
@@ -383,12 +385,12 @@ class MusicManagerWindow(QMainWindow):
         if reply == QMessageBox.StandardButton.No: return
         titles = [self.table.item(row.row(), 0).text() for row in rows]
         for title in titles:
-            if mode in ["folder", "both"]: bk.DeleteSongFromDisk(title)
-            if mode in ["list", "both"]: bk.SongDF = bk.SongDF[bk.SongDF['Title'] != title]
-        if mode in ["list", "both"]: bk.SaveSongfile()
+            bk.DeleteSongFromDisk(title)
+            bk.SongDF = bk.SongDF[bk.SongDF['Title'] != title]
+        bk.SaveSongfile()
         self.RefreshList()
-        self.status.showMessage(f"Deleted {len(titles)} songs ({mode}).")
-
+        self.status.showMessage(f"Deleted {len(titles)} songs.")
+    
     def StartImageUpdate(self):
         def UpdateDone():
             QMessageBox.information(self, "Done", "Images Updated")
