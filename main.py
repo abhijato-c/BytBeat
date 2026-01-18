@@ -141,13 +141,22 @@ class MusicManagerWindow(QMainWindow):
             if status == QMediaPlayer.MediaStatus.EndOfMedia:
                 self.PlayBtn.setText("▶")
                 self.SeekSlider.setValue(0)
+        
+        def FormatTime(ms):
+            seconds = (ms // 1000) % 60
+            minutes = (ms // 60000)
+            return f"{minutes}:{seconds:02}"
+        
+        def PositionChanged(pos):
+            self.SeekSlider.setValue(pos)
+            TimeLbl.setText(f"{FormatTime(pos)} / {FormatTime(self.Player.duration())}")
 
         self.Player = QMediaPlayer()
         self.AudioOutput = QAudioOutput()
         self.AudioOutput.setVolume(1.0)
         self.Player.setAudioOutput(self.AudioOutput)
 
-        self.Player.positionChanged.connect(lambda position: self.SeekSlider.setValue(position))
+        self.Player.positionChanged.connect(PositionChanged)
         self.Player.durationChanged.connect(lambda duration: self.SeekSlider.setRange(0, duration))
         self.Player.mediaStatusChanged.connect(MediaStatusChanged)
         self.Player.playbackStateChanged.connect(SetPlaybuttonText)
@@ -162,12 +171,20 @@ class MusicManagerWindow(QMainWindow):
         self.PlayBtn.clicked.connect(TogglePlay)
         PlayerLayout.addWidget(self.PlayBtn)
 
-        # Scrubber and Title
+        # Title and timer
         ScrubberLayout = QVBoxLayout()
+        TopLayout = QHBoxLayout()
+
+        # Song Title
         self.NowPlayingLbl = QLabel("Select a song to play")
         self.NowPlayingLbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.NowPlayingLbl.setStyleSheet("font-weight: bold; font-size: 14px; color: #ddd;")
-        ScrubberLayout.addWidget(self.NowPlayingLbl)
+        self.NowPlayingLbl.setObjectName("NowPlaying")
+        TopLayout.addWidget(self.NowPlayingLbl, Qt.AlignmentFlag.AlignHCenter)
+
+        # Time indicator
+        TimeLbl = QLabel("0:00 / 0:00")
+        TimeLbl.setObjectName("TimeLabel")
+        TopLayout.addWidget(TimeLbl, alignment=Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight)
 
         # Slider
         self.SeekSlider = QSlider(Qt.Orientation.Horizontal)
@@ -175,6 +192,8 @@ class MusicManagerWindow(QMainWindow):
         self.SeekSlider.sliderMoved.connect(lambda position: self.Player.setPosition(position))
         self.SeekSlider.sliderPressed.connect(lambda: self.Player.pause()) # Pause while dragging
         self.SeekSlider.sliderReleased.connect(lambda: self.Player.play()) # Resume after drag
+
+        ScrubberLayout.addLayout(TopLayout)
         ScrubberLayout.addWidget(self.SeekSlider)
 
         PlayerLayout.addLayout(ScrubberLayout)
@@ -351,15 +370,13 @@ class MusicManagerWindow(QMainWindow):
         self.PlayBtn.setFixedSize(PlayBtnSize, PlayBtnSize)
 
         # Slider
-        HandleSize = int(PlayerFrameHeight / 4)
-        
-        # formula to vertically center dragger: Margin = -(Handle_Height - Groove_Height) / 2
-        GrooveHeight = int(PlayerFrameHeight / 7)
-        margin = -(HandleSize - GrooveHeight) // 2
+        HandleSize = int(PlayerFrameHeight / 5)
+        GrooveHeight = int(PlayerFrameHeight / 10)
+        margin = -(HandleSize - GrooveHeight) // 2 # Magic formula to vertically center handle, idk how it works
 
         self.SeekSlider.setStyleSheet(f"""
             QSlider {{
-                height: {HandleSize+1}px; /* Prevent the handle from clipping */
+                height: {HandleSize+100}px; /* Prevent the handle from clipping */
             }}
             QSlider::groove:horizontal {{
                 height: {GrooveHeight}px;
