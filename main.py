@@ -102,7 +102,8 @@ class MusicManagerWindow(QMainWindow):
         self.SongMenu = self.menuBar().addMenu("Song")
 
         self.EditSongBtn = CreateMenuWidget(self.SongMenu, "Edit Details", "standard", self.EditSong)
-        self.DelBtn = CreateMenuWidget(self.SongMenu, "Delete from List", "danger", lambda: self.DeleteSong())
+        self.DownloadSongBtn = CreateMenuWidget(self.SongMenu, "Download Song(s)", "success", lambda: self.StartDownload(True))
+        self.DelBtn = CreateMenuWidget(self.SongMenu, "Delete from List", "danger", self.DeleteSong)
         self.UpdateImgBtn = CreateMenuWidget(self.SongMenu, "Update Image(s)", "standard", lambda: self.StartImageUpdate(True, False))
         self.RedownloadImgBtn = CreateMenuWidget(self.SongMenu, "Redownload Image(s)", "success", lambda: self.StartImageUpdate(True, True))
         
@@ -154,11 +155,9 @@ class MusicManagerWindow(QMainWindow):
         def ShowVolumeMenu():
             ButtonPos = self.VolBtn.mapToGlobal(self.VolBtn.rect().topLeft())
 
-            MenuHeight = VolMenu.sizeHint().height()
+            MenuHeight = self.VolMenu.height()
+            MenuWidth = self.VolMenu.width()
             ButtonWidth = self.VolBtn.width()
-            MenuSize = VolMenu.sizeHint()
-            MenuWidth = MenuSize.width()
-            MenuHeight = MenuSize.height()
             
             CenteredX = ButtonPos.x() + (ButtonWidth // 2) - (MenuWidth // 2)
             TopY = ButtonPos.y() - MenuHeight
@@ -167,7 +166,7 @@ class MusicManagerWindow(QMainWindow):
             PopupPos.setX(CenteredX)
             PopupPos.setY(TopY)
 
-            VolMenu.exec(PopupPos)
+            self.VolMenu.exec(PopupPos)
 
         self.Player = QMediaPlayer()
         AudioOut = QAudioOutput()
@@ -203,6 +202,7 @@ class MusicManagerWindow(QMainWindow):
         TimeLbl = QLabel("0:00 / 0:00")
         TimeLbl.setObjectName("TimeLabel")
         TopLayout.addWidget(TimeLbl, alignment=Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight)
+        ScrubberLayout.addLayout(TopLayout)
 
         # Slider
         self.SeekSlider = QSlider(Qt.Orientation.Horizontal)
@@ -210,10 +210,11 @@ class MusicManagerWindow(QMainWindow):
         self.SeekSlider.sliderMoved.connect(lambda position: self.Player.setPosition(position))
         self.SeekSlider.sliderPressed.connect(lambda: self.Player.pause()) # Pause while dragging
         self.SeekSlider.sliderReleased.connect(lambda: self.Player.play()) # Resume after drag
+        ScrubberLayout.addWidget(self.SeekSlider)
 
         # Volume
-        VolMenu = QMenu(self)
-        VolMenu.setObjectName("VolumeMenu")
+        self.VolMenu = QMenu(self)
+        self.VolMenu.setObjectName("VolumeMenu")
 
         self.VolSlider = QSlider(Qt.Orientation.Vertical)
         self.VolSlider.setRange(0, 100)
@@ -222,14 +223,11 @@ class MusicManagerWindow(QMainWindow):
 
         VolAction = QWidgetAction(self)
         VolAction.setDefaultWidget(self.VolSlider)
-        VolMenu.addAction(VolAction)
+        self.VolMenu.addAction(VolAction)
 
         self.VolBtn = QPushButton("🔊") # Unicode emojis cus I dont want to make image icons...
         self.VolBtn.setObjectName("VolBtn")
         self.VolBtn.clicked.connect(ShowVolumeMenu)
-
-        ScrubberLayout.addLayout(TopLayout)
-        ScrubberLayout.addWidget(self.SeekSlider)
 
         PlayerLayout.addLayout(ScrubberLayout)
         PlayerLayout.addWidget(self.VolBtn, alignment=Qt.AlignmentFlag.AlignRight)
@@ -264,20 +262,27 @@ class MusicManagerWindow(QMainWindow):
         count = len(selected)
         
         self.EditSongBtn.setEnabled(count == 1)
+        self.DownloadSongBtn.setEnabled(count > 0)
         self.DelBtn.setEnabled(count > 0)
         self.UpdateImgBtn.setEnabled(count > 0)
         self.RedownloadImgBtn.setEnabled(count > 0)
 
-    def StartDownload(self):
-        def DownloadDone():
-            QMessageBox.information(self, "Download Complete", "All pending songs have been downloaded.")
+    def StartDownload(self, selected = False):
+        def DownloadDone(successes, fails):
+            QMessageBox.information(self, "Download Complete", f"{successes} songs downloaded successfully. \n {fails} songs failed to download.")
             self.DownloadBtn.setEnabled(True) # Re-enable menu action
             self.RefreshList()
             self.status.showMessage("Ready")
         
+        if selected:
+            rows = self.table.selectionModel().selectedRows()
+            titles = [self.table.item(row.row(), 0).text() for row in rows]
+        else:
+            titles = bk.SongDF[bk.SongDF['Status'] != 'Downloaded']['Title'].tolist()
+        
         self.status.showMessage("Starting download...")
         self.DownloadBtn.setEnabled(False) # Disable menu action
-        self.worker = DownloadWorker()
+        self.worker = DownloadWorker(titles)
         self.worker.ProgressUpdate.connect(lambda s: self.status.showMessage(s))
         self.worker.RefreshList.connect(self.RefreshList)
         self.worker.Finished.connect(DownloadDone)
@@ -397,17 +402,17 @@ class MusicManagerWindow(QMainWindow):
         width = self.width()
         height = self.height()
 
-        PlayerFrameWidth = int(width * 0.75)
-        PlayerFrameHeight = int(height * 0.08)
+        PlayerWidth = int(width * 0.75)
+        PlayerHeight = int(height * 0.08)
         
-        self.PlayerFrame.setFixedSize(PlayerFrameWidth, PlayerFrameHeight)
-        PlayBtnSize = int(PlayerFrameHeight * 0.7)
+        self.PlayerFrame.setFixedSize(PlayerWidth, PlayerHeight)
+        PlayBtnSize = int(PlayerHeight * 0.7)
         self.PlayBtn.setStyleSheet(f"border-radius: {PlayBtnSize // 2}px; font-size: {int(PlayBtnSize * 0.4)}px;")
         self.PlayBtn.setFixedSize(PlayBtnSize, PlayBtnSize)
 
-        # Slider
-        HandleSize = int(PlayerFrameHeight / 5)
-        GrooveHeight = int(PlayerFrameHeight / 10)
+        # Scrub Slider
+        HandleSize = int(PlayerHeight * 0.2)
+        GrooveHeight = int(PlayerHeight * 0.1)
         margin = -(HandleSize - GrooveHeight) // 2 # Magic formula to vertically center handle, idk how it works
 
         self.SeekSlider.setStyleSheet(f"""
@@ -427,24 +432,23 @@ class MusicManagerWindow(QMainWindow):
         """)
 
         # Volume btn
-        VolBtnSiz = int(PlayerFrameHeight * 0.7)
+        VolBtnSiz = int(PlayerHeight * 0.7)
         self.VolBtn.setStyleSheet(f"font-size: {int(VolBtnSiz * 0.4)}px;")
         self.VolBtn.setFixedSize(VolBtnSiz,VolBtnSiz)
 
         # Volume slider
-        SliderHeight = int(PlayerFrameHeight * 3)
-        SliderWidth = int(VolBtnSiz * 0.7)
+        PopupHeight = int(PlayerHeight * 3)
+        PopupWidth = int(VolBtnSiz * 0.6)
 
-        HandleSize = int(SliderWidth * 0.5)
-        GrooveWidth = int(SliderWidth * 0.2)
-        GrooveHeight = int(SliderHeight * 0.9)
+        HandleSize = int(PopupWidth * 0.4)
+        GrooveWidth = int(PopupWidth * 0.2)
+        GrooveHeight = int(PopupHeight * 0.9)
         margin = -(HandleSize - GrooveWidth) // 2
 
+        self.VolMenu.setFixedSize(PopupWidth, PopupHeight)
+        self.VolSlider.setFixedSize(PopupWidth, PopupHeight)
+
         self.VolSlider.setStyleSheet(f"""
-            QSlider {{
-                width: {SliderWidth}px;
-                height: {SliderHeight}px;
-            }}
             QSlider::groove:vertical {{
                 width: {GrooveWidth}px;
                 height: {GrooveHeight}px;

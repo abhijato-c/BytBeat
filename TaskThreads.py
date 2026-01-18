@@ -5,23 +5,25 @@ from PyQt6.QtCore import QThread, pyqtSignal
 class DownloadWorker(QThread):
     ProgressUpdate = pyqtSignal(str) 
     RefreshList = pyqtSignal()       
-    Finished = pyqtSignal()          
+    Finished = pyqtSignal(int, int)      
+
+    def __init__(self, titles):
+        super().__init__()
+        self.rows = bk.SongDF[bk.SongDF['Title'].isin(titles)]
 
     def run(self):
-        PendingDownload = bk.SongDF[bk.SongDF['Status'] != 'Downloaded']
-        if PendingDownload.empty:
-            self.ProgressUpdate.emit("All songs are already downloaded.")
-            self.Finished.emit()
-            return
-
-        for _, row in PendingDownload.iterrows():
+        successes = 0
+        fails = 0
+        for _, row in self.rows.iterrows():
             title = row['Title']
             self.ProgressUpdate.emit(f"Downloading: {title}...")
-            bk.DownloadSong(row['VideoID'], title, artist=row['Artist'], genre=row['Genre'], encoding=bk.Config.get("Encoding"))
+            success = bk.DownloadSong(row['VideoID'], title, artist=row['Artist'], genre=row['Genre'], encoding=bk.Config.get("Encoding"))
+            if success: successes+=1
+            else: fails+=1
             self.RefreshList.emit()
 
         self.ProgressUpdate.emit("Ready")
-        self.Finished.emit()
+        self.Finished.emit(successes, fails)
 
 # Update Images Thread
 class ImageWorker(QThread):
