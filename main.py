@@ -150,11 +150,29 @@ class MusicManagerWindow(QMainWindow):
         def PositionChanged(pos):
             self.SeekSlider.setValue(pos)
             TimeLbl.setText(f"{FormatTime(pos)} / {FormatTime(self.Player.duration())}")
+        
+        def ShowVolumeMenu():
+            ButtonPos = self.VolBtn.mapToGlobal(self.VolBtn.rect().topLeft())
+
+            MenuHeight = VolMenu.sizeHint().height()
+            ButtonWidth = self.VolBtn.width()
+            MenuSize = VolMenu.sizeHint()
+            MenuWidth = MenuSize.width()
+            MenuHeight = MenuSize.height()
+            
+            CenteredX = ButtonPos.x() + (ButtonWidth // 2) - (MenuWidth // 2)
+            TopY = ButtonPos.y() - MenuHeight
+
+            PopupPos = ButtonPos
+            PopupPos.setX(CenteredX)
+            PopupPos.setY(TopY)
+
+            VolMenu.exec(PopupPos)
 
         self.Player = QMediaPlayer()
-        self.AudioOutput = QAudioOutput()
-        self.AudioOutput.setVolume(1.0)
-        self.Player.setAudioOutput(self.AudioOutput)
+        AudioOut = QAudioOutput()
+        AudioOut.setVolume(1.0)
+        self.Player.setAudioOutput(AudioOut)
 
         self.Player.positionChanged.connect(PositionChanged)
         self.Player.durationChanged.connect(lambda duration: self.SeekSlider.setRange(0, duration))
@@ -166,7 +184,7 @@ class MusicManagerWindow(QMainWindow):
         PlayerLayout = QHBoxLayout(self.PlayerFrame)
 
         # Play Button
-        self.PlayBtn = QPushButton("▶")
+        self.PlayBtn = QPushButton("▶") # Unicode emoji 
         self.PlayBtn.setObjectName("PlayBtn")
         self.PlayBtn.clicked.connect(TogglePlay)
         PlayerLayout.addWidget(self.PlayBtn)
@@ -193,10 +211,28 @@ class MusicManagerWindow(QMainWindow):
         self.SeekSlider.sliderPressed.connect(lambda: self.Player.pause()) # Pause while dragging
         self.SeekSlider.sliderReleased.connect(lambda: self.Player.play()) # Resume after drag
 
+        # Volume
+        VolMenu = QMenu(self)
+        VolMenu.setObjectName("VolumeMenu")
+
+        self.VolSlider = QSlider(Qt.Orientation.Vertical)
+        self.VolSlider.setRange(0, 100)
+        self.VolSlider.setValue(100)
+        self.VolSlider.valueChanged.connect(lambda v: AudioOut.setVolume(v / 100))
+
+        VolAction = QWidgetAction(self)
+        VolAction.setDefaultWidget(self.VolSlider)
+        VolMenu.addAction(VolAction)
+
+        self.VolBtn = QPushButton("🔊") # Unicode emojis cus I dont want to make image icons...
+        self.VolBtn.setObjectName("VolBtn")
+        self.VolBtn.clicked.connect(ShowVolumeMenu)
+
         ScrubberLayout.addLayout(TopLayout)
         ScrubberLayout.addWidget(self.SeekSlider)
 
         PlayerLayout.addLayout(ScrubberLayout)
+        PlayerLayout.addWidget(self.VolBtn, alignment=Qt.AlignmentFlag.AlignRight)
         self.MainLayout.addWidget(self.PlayerFrame, alignment=Qt.AlignmentFlag.AlignHCenter)
     
     def PlaySong(self, index):
@@ -362,10 +398,10 @@ class MusicManagerWindow(QMainWindow):
         height = self.height()
 
         PlayerFrameWidth = int(width * 0.75)
-        PlayerFrameHeight = int(height * 0.10)
+        PlayerFrameHeight = int(height * 0.08)
         
         self.PlayerFrame.setFixedSize(PlayerFrameWidth, PlayerFrameHeight)
-        PlayBtnSize = int(PlayerFrameHeight * 0.6)
+        PlayBtnSize = int(PlayerFrameHeight * 0.7)
         self.PlayBtn.setStyleSheet(f"border-radius: {PlayBtnSize // 2}px; font-size: {int(PlayBtnSize * 0.4)}px;")
         self.PlayBtn.setFixedSize(PlayBtnSize, PlayBtnSize)
 
@@ -376,7 +412,7 @@ class MusicManagerWindow(QMainWindow):
 
         self.SeekSlider.setStyleSheet(f"""
             QSlider {{
-                height: {HandleSize+100}px; /* Prevent the handle from clipping */
+                height: {HandleSize+1}px; /* Prevent the handle from clipping */
             }}
             QSlider::groove:horizontal {{
                 height: {GrooveHeight}px;
@@ -388,8 +424,43 @@ class MusicManagerWindow(QMainWindow):
                 margin: {margin}px 0;
                 border-radius: {HandleSize // 2}px;
             }}
-            QSlider::sub-page:horizontal {{
-                border-radius: {GrooveHeight // 2}px;
+        """)
+
+        # Volume btn
+        VolBtnSiz = int(PlayerFrameHeight * 0.7)
+        self.VolBtn.setStyleSheet(f"font-size: {int(VolBtnSiz * 0.4)}px;")
+        self.VolBtn.setFixedSize(VolBtnSiz,VolBtnSiz)
+
+        # Volume slider
+        SliderHeight = int(PlayerFrameHeight * 3)
+        SliderWidth = int(VolBtnSiz * 0.7)
+
+        HandleSize = int(SliderWidth * 0.5)
+        GrooveWidth = int(SliderWidth * 0.2)
+        GrooveHeight = int(SliderHeight * 0.9)
+        margin = -(HandleSize - GrooveWidth) // 2
+
+        self.VolSlider.setStyleSheet(f"""
+            QSlider {{
+                width: {SliderWidth}px;
+                height: {SliderHeight}px;
+            }}
+            QSlider::groove:vertical {{
+                width: {GrooveWidth}px;
+                height: {GrooveHeight}px;
+                border-radius: {GrooveWidth // 2}px;
+            }}
+            QSlider::handle:vertical {{
+                width: {HandleSize}px;
+                height: {HandleSize}px;
+                margin: 0 {margin}px;
+                border-radius: {HandleSize // 2}px;
+            }}
+            QSlider::add-page:vertical {{
+                border-radius: {HandleSize // 2}px;
+            }}
+            QSlider::sub-page:vertical {{
+                border-radius: {GrooveWidth // 2}px;
             }}
         """)
     

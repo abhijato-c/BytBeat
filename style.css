@@ -113,5 +113,10 @@ QPushButton[class="danger"]:disabled { background-color: rgb(70, 20, 20); color:
 }
 
 QSlider::groove:horizontal { background: #444; }
-QSlider::sub-page:horizontal { background: hsl(200, 80%, 50%); }
 QSlider::handle:horizontal { background: hsl(200, 100%, 40%); }
+QSlider::sub-page:horizontal { background: hsl(200, 80%, 50%); }
+
+#VolumeMenu {background-color: #333;}
+#VolumeMenu QSlider::groove:vertical {background: #444;}
+#VolumeMenu QSlider::handle:vertical {background: hsl(200, 100%, 40%);}
+#VolumeMenu QSlider::add-page:vertical { background: hsl(200, 80%, 50%); }
