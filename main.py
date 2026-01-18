@@ -3,11 +3,12 @@ import Backend as bk
 from PopupDialogs import AddSongDialog, EditSongDialog
 from TaskThreads import DownloadWorker, ImageWorker
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QAction, QActionGroup
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox,
-    QPushButton, QGroupBox, QMessageBox, QAbstractItemView, QStatusBar, QFileDialog, QMenu, QWidgetAction,
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox, QFrame, QSlider,
+    QPushButton, QGroupBox, QMessageBox, QAbstractItemView, QStatusBar, QFileDialog, QMenu, QWidgetAction, QHBoxLayout, QLabel, 
 )
 
 # Main Window
@@ -19,7 +20,7 @@ class MusicManagerWindow(QMainWindow):
         
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        self.main_layout = QVBoxLayout(central_widget)
+        self.MainLayout = QVBoxLayout(central_widget)
         self.Columns = ['Title', 'Artist', 'Genre', 'Status']
 
         self.SortBy = 'Title'
@@ -30,6 +31,7 @@ class MusicManagerWindow(QMainWindow):
         self.SetupMenu()
         self.SetupTable()
         self.SetupStatusbar()
+        self.SetupPlayer()
         self.ApplyStyles()
         self.RefreshList()
 
@@ -53,14 +55,14 @@ class MusicManagerWindow(QMainWindow):
         self.table.setAlternatingRowColors(True)
         
         self.table.itemSelectionChanged.connect(self.SelectionChanged)
+        self.table.doubleClicked.connect(self.PlaySong)
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.ShowContextMenu)
 
         gb_layout.addWidget(self.table)
         gb.setLayout(gb_layout)
-        self.main_layout.addWidget(gb)
+        self.MainLayout.addWidget(gb)
 
-    
     def SetupMenu(self):
         def CreateMenuWidget(menu, text, color_class, callback, Close=True):
             action = QWidgetAction(menu)
@@ -125,6 +127,78 @@ class MusicManagerWindow(QMainWindow):
             if fmt == CurrentFormat: action.setChecked(True)
             FormatGroup.addAction(action)
             FormatMenu.addAction(action)
+    
+    def SetupPlayer(self):
+        def SetPlaybuttonText():
+            if self.Player.playbackState() == QMediaPlayer.PlaybackState.PlayingState: self.PlayBtn.setText("⏸")
+            elif self.Player.playbackState() == QMediaPlayer.PlaybackState.PausedState: self.PlayBtn.setText("▶")
+
+        def TogglePlay():
+            if self.Player.playbackState() == QMediaPlayer.PlaybackState.PlayingState: self.Player.pause()
+            elif self.Player.playbackState() == QMediaPlayer.PlaybackState.PausedState: self.Player.play()
+
+        def MediaStatusChanged(status):
+            if status == QMediaPlayer.MediaStatus.EndOfMedia:
+                self.PlayBtn.setText("▶")
+                self.SeekSlider.setValue(0)
+
+        self.Player = QMediaPlayer()
+        self.AudioOutput = QAudioOutput()
+        self.AudioOutput.setVolume(1.0)
+        self.Player.setAudioOutput(self.AudioOutput)
+
+        self.Player.positionChanged.connect(lambda position: self.SeekSlider.setValue(position))
+        self.Player.durationChanged.connect(lambda duration: self.SeekSlider.setRange(0, duration))
+        self.Player.mediaStatusChanged.connect(MediaStatusChanged)
+        self.Player.playbackStateChanged.connect(SetPlaybuttonText)
+
+        self.PlayerFrame = QFrame()
+        self.PlayerFrame.setObjectName("PlayerFrame")
+        PlayerLayout = QHBoxLayout(self.PlayerFrame)
+
+        # Play Button
+        self.PlayBtn = QPushButton("▶")
+        self.PlayBtn.setObjectName("PlayBtn")
+        self.PlayBtn.clicked.connect(TogglePlay)
+        PlayerLayout.addWidget(self.PlayBtn)
+
+        # Scrubber and Title
+        ScrubberLayout = QVBoxLayout()
+        self.NowPlayingLbl = QLabel("Select a song to play")
+        self.NowPlayingLbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.NowPlayingLbl.setStyleSheet("font-weight: bold; font-size: 14px; color: #ddd;")
+        ScrubberLayout.addWidget(self.NowPlayingLbl)
+
+        # Slider
+        self.SeekSlider = QSlider(Qt.Orientation.Horizontal)
+        self.SeekSlider.setRange(0, 0)
+        self.SeekSlider.sliderMoved.connect(lambda position: self.Player.setPosition(position))
+        self.SeekSlider.sliderPressed.connect(lambda: self.Player.pause()) # Pause while dragging
+        self.SeekSlider.sliderReleased.connect(lambda: self.Player.play()) # Resume after drag
+        ScrubberLayout.addWidget(self.SeekSlider)
+
+        PlayerLayout.addLayout(ScrubberLayout)
+        self.MainLayout.addWidget(self.PlayerFrame, alignment=Qt.AlignmentFlag.AlignHCenter)
+    
+    def PlaySong(self, index):
+        title = self.table.item(index.row(), 0).text()
+        
+        # Find file extension
+        Path = None
+        for ext in ['.mp3', '.flac', '.m4a']:
+            path = bk.MusicDir / f"{title}{ext}"
+            if path.exists():
+                Path = path
+                break
+        
+        if not Path:
+            QMessageBox.warning(self, "Song not downloaded", f"Please download '{title}' first before playing!")
+            return
+        
+        self.Player.setSource(QUrl.fromLocalFile(str(Path)))
+        self.Player.play()
+        self.NowPlayingLbl.setText(title)
+        self.status.showMessage(f"Playing: {title}")
     
     def ShowContextMenu(self, pos):
         if not self.table.selectionModel().hasSelection(): return
@@ -262,6 +336,45 @@ class MusicManagerWindow(QMainWindow):
             bk.ChangeMusicDir(NewDir)
             self.status.showMessage(f"Download folder changed to: {NewDir}")
         self.RefreshList()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        width = self.width()
+        height = self.height()
+
+        PlayerFrameWidth = int(width * 0.75)
+        PlayerFrameHeight = int(height * 0.10)
+        
+        self.PlayerFrame.setFixedSize(PlayerFrameWidth, PlayerFrameHeight)
+        PlayBtnSize = int(PlayerFrameHeight * 0.6)
+        self.PlayBtn.setStyleSheet(f"border-radius: {PlayBtnSize // 2}px; font-size: {int(PlayBtnSize * 0.4)}px;")
+        self.PlayBtn.setFixedSize(PlayBtnSize, PlayBtnSize)
+
+        # Slider
+        HandleSize = int(PlayerFrameHeight / 4)
+        
+        # formula to vertically center dragger: Margin = -(Handle_Height - Groove_Height) / 2
+        GrooveHeight = int(PlayerFrameHeight / 7)
+        margin = -(HandleSize - GrooveHeight) // 2
+
+        self.SeekSlider.setStyleSheet(f"""
+            QSlider {{
+                height: {HandleSize+1}px; /* Prevent the handle from clipping */
+            }}
+            QSlider::groove:horizontal {{
+                height: {GrooveHeight}px;
+                border-radius: {GrooveHeight // 2}px;
+            }}
+            QSlider::handle:horizontal {{
+                width: {HandleSize}px;
+                height: {HandleSize}px;
+                margin: {margin}px 0;
+                border-radius: {HandleSize // 2}px;
+            }}
+            QSlider::sub-page:horizontal {{
+                border-radius: {GrooveHeight // 2}px;
+            }}
+        """)
     
     def closeEvent(self, event):
         bk.SaveSongfile()

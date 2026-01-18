@@ -84,3 +84,22 @@ QPushButton[class="success"]:disabled { background-color: hsl(120, 30%, 15%); co
 QPushButton[class="danger"] { background-color: rgb(200, 40, 40); border-color: rgb(100, 20, 20); }
 QPushButton[class="danger"]:hover { background-color: rgb(245, 60, 60); }
 QPushButton[class="danger"]:disabled { background-color: rgb(70, 20, 20); color: #555; border-color: rgb(40, 10, 10); }
+
+/* Player */
+#PlayerFrame {
+    background-color: #333;
+    border-radius: 5px;
+    margin-top: 5px;
+}
+
+#PlayBtn {
+    background-color: hsl(200, 80%, 40%);
+    border: 3px solid hsl(200, 100%, 20%);
+    color: white;
+}
+#PlayBtn:hover { background-color: hsl(200, 90%, 50%); }
+#PlayBtn:pressed { background-color: hsl(200, 100%, 30%); }
+
+QSlider::groove:horizontal { background: #444; }
+QSlider::sub-page:horizontal { background: hsl(200, 80%, 50%); }
+QSlider::handle:horizontal { background: hsl(200, 100%, 40%); }
