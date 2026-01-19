@@ -511,6 +511,7 @@ if __name__ == "__main__":
             sys.exit(1)
     
     app = QApplication(sys.argv)
+    app.setDesktopFileName("BytBeat")
     app.setWindowIcon(QIcon(bk.ResourcePath('logo.ico')))
     app.setStyle("Fusion")
 
