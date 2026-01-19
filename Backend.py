@@ -5,22 +5,28 @@ from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, APIC, error
 from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
+
 import os
 import json
 from pathlib import Path
 import subprocess
 import platform
+import shutil
+import tarfile
+import urllib
+import zipfile
+import stat
 
 def GetAppDataFolder():
     home = Path.home()
     system = platform.system()
 
     if system == "Windows":
-        return Path(os.environ.get("LOCALAPPDATA", home / "AppData/Local")) / 'MusicManager'
+        return Path(os.environ.get("LOCALAPPDATA", home / "AppData/Local")) / 'BytBeat'
     elif system == "Darwin":  # macOS
-        return home / "Library/Application Support" / 'MusicManager'
+        return home / "Library/Application Support" / 'BytBeat'
     else:  # Linux / Others
-        return home / ".local/share" / 'MusicManager'
+        return home / ".local/share" / 'BytBeat'
 
 def GetMusicDir():
     system = platform.system()
@@ -34,9 +40,8 @@ def GetMusicDir():
         xdg_music = os.environ.get("XDG_MUSIC_DIR")
         if xdg_music:
             return Path(xdg_music)
-        # Fallback for Linux if XDG is not set
-        return home / "Music"
-    return home / "Music" # Universal fallback
+        return home / "Music" # Fallback if XDG not set
+    return home / "Music" # fallback
 
 AppData = GetAppDataFolder()
 AppData.mkdir(parents=True, exist_ok=True)
@@ -66,7 +71,7 @@ if not ConfigFile.exists():
 if not SongFile.exists():
     SongFile.touch()
     with open(SongFile, 'w', encoding='utf-8') as f:
-        f.write("title,artist,genre,VideoID,status\n")
+        f.write("Title,Artist,Genre,VideoID,Status\n")
 
 # Load Config
 with open(ConfigFile, 'r', encoding='utf-8') as f:
@@ -281,5 +286,90 @@ def OpenImageDir():
     elif system == "Darwin": subprocess.run(["open", path])
     else: subprocess.run(["xdg-open", path])
 
+def InstallInstructions():
+    system = platform.system()
+
+    if system == "Windows":
+        return '''
+        Detected OS: Windows \n
+        Please download and install FFmpeg from: 
+            https://www.gyan.dev/ffmpeg/builds/
+        '''
+    elif system == "Darwin":
+        return '''
+        Detected OS: Mac \n
+        Please download and install FFmpeg from: 
+            https://ffmpeg.org/download.html#build-mac
+        '''
+    elif system == "Linux":
+        return'''
+        Detected OS: Linux \n 
+        Ubuntu, Debian, Kali, Mint:
+            'sudo apt install ffmpeg' \n 
+        Arch, Manjaro, Endeavour:
+            'sudo pacman -S ffmpeg' \n
+        Fedora:
+            'sudo dnf install ffmpeg' \n
+        CentOS, RHEL:
+            'sudo dnf install epel-release'
+            'sudo dnf install ffmpeg' \n
+        openSUSE:
+            'sudo zypper install ffmpeg'
+        '''
+    return "\n Failed to detect OS \n Please search online on how to download FFmpeg."
+
 def SaveSongfile():
     SongDF.sort_values(by='Title').reset_index(drop=True).to_csv(SongFile, index=False)
+
+def IsFfmpegInstalled():
+    return shutil.which('ffmpeg') is not None
+
+def LocalFFMPEG():
+    # Look for the executable inside the install dir
+    def FindBin(search_dir):
+        for path in search_dir.rglob("ffmpeg*"):
+            if path.is_file() and (path.name == "ffmpeg" or path.name == "ffmpeg.exe"):
+                return path
+        return None
+    
+    os_type = platform.system().lower()
+    urls = {
+        "windows": "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
+        "linux": "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz",
+        "darwin": "https://evermeet.cx/ffmpeg/getrelease/zip"
+    }
+
+    if os_type not in urls: raise OSError(f"Unsupported OS: {os_type}")
+
+    FFpath = AppData / "ffmpeg_bin"
+    FFpath.mkdir(parents=True, exist_ok=True)
+    BinPath = FindBin(FFpath)
+
+    # Download
+    if not BinPath:
+        ArchiveExt = ".zip" if os_type != "linux" else ".tar.xz"
+        ArchivePath = AppData / f"ffmpeg_archive{ArchiveExt}"
+
+        req = urllib.request.Request(urls[os_type], headers={'User-Agent': 'Mozilla/5.0'}) # Header to imitate human
+        with urllib.request.urlopen(req) as response, open(ArchivePath, 'wb') as out:
+            out.write(response.read())
+
+        if ArchiveExt == ".zip":
+            with zipfile.ZipFile(ArchivePath, 'r') as zip_ref: zip_ref.extractall(FFpath)
+        else: 
+            with tarfile.open(ArchivePath, "r:xz") as tar_ref: tar_ref.extractall(FFpath)
+        
+        ArchivePath.unlink()
+        BinPath = FindBin(FFpath)
+
+    if not BinPath: raise OSError("Executable not found")
+
+    # Permissions
+    if not os_type=='windows':
+        st = os.stat(BinPath)
+        os.chmod(BinPath, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+    # Add to PATH
+    BinStr = str(BinPath.parent.resolve())
+    sep = ";" if os_type=='windows' else ":"
+    if BinStr not in os.environ["PATH"]: os.environ["PATH"] = BinStr + sep + os.environ["PATH"]

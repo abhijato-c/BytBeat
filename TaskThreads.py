@@ -49,3 +49,21 @@ class ImageWorker(QThread):
                     bk.AddCoverArt(SongPath, ImagePath, ext)
                     break
         self.Finished.emit()
+
+# Download ffmpeg
+class FfmpegWorker(QThread):
+    finished = pyqtSignal(bool)
+    status = pyqtSignal(str)
+
+    def run(self):
+        try:
+            if not bk.IsFfmpegInstalled():
+                self.status.emit("Downloading FFmpeg (this may take a minute)...")
+                bk.LocalFFMPEG()
+            
+            # Final check
+            success = bk.IsFfmpegInstalled()
+            self.finished.emit(success)
+        except Exception as e:
+            print(f"Worker Error: {e}")
+            self.finished.emit(False)

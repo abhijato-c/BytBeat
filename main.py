@@ -1,21 +1,21 @@
 import sys
 import Backend as bk
 from PopupDialogs import AddSongDialog, EditSongDialog
-from TaskThreads import DownloadWorker, ImageWorker
+from TaskThreads import DownloadWorker, ImageWorker, FfmpegWorker
 
 from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QAction, QActionGroup
+from PyQt6.QtGui import QAction, QActionGroup, QPixmap
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox, QFrame, QSlider,
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox, QFrame, QSlider, QSplashScreen,
     QPushButton, QGroupBox, QMessageBox, QAbstractItemView, QStatusBar, QFileDialog, QMenu, QWidgetAction, QHBoxLayout, QLabel, 
 )
 
 # Main Window
-class MusicManagerWindow(QMainWindow):
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Music Manager")
+        self.setWindowTitle("BytBeat")
         self.setGeometry(100, 100, 1100, 700)
         
         central_widget = QWidget()
@@ -34,6 +34,23 @@ class MusicManagerWindow(QMainWindow):
         self.SetupPlayer()
         self.ApplyStyles()
         self.RefreshList()
+        self.FfmpegCheck()
+    
+    def FfmpegCheck(self):
+        if not bk.IsFfmpegInstalled(): 
+            print("local install")
+            try:
+                bk.LocalFFMPEG()
+            except:
+                print("local install failed")
+                pass
+        
+        # Install failed
+        if not bk.IsFfmpegInstalled(): 
+            instruct = bk.InstallInstructions()
+            QMessageBox.critical(None, "FFmpeg not found", 
+                            f"FFmpeg is required to run BytBeat. Please follow the instructions to install: \n {instruct}")
+            sys.exit(1)
 
     def SetupTable(self):
         gb = QGroupBox("Library Status")
@@ -478,8 +495,31 @@ class MusicManagerWindow(QMainWindow):
         self.setStyleSheet(stylesheet)
 
 if __name__ == "__main__":
+    def StartMainWindow(success):
+        if success:
+            window = MainWindow()
+            window.show()
+            splash.finish(window)
+        else:
+            splash.close()
+            instruct = bk.InstallInstructions()
+            QMessageBox.critical(None, "FFmpeg Error", f"Failed to install FFmpeg.\n{instruct}")
+            sys.exit(1)
+    
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    window = MusicManagerWindow()
-    window.show()
+
+    pixmap = QPixmap(500, 500) # Logo here someday?
+    pixmap.fill(Qt.GlobalColor.darkGray) 
+    splash = QSplashScreen(pixmap)
+    splash.showMessage("Checking for ffmpeg...", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter, Qt.GlobalColor.white)
+    splash.show()
+
+    worker = FfmpegWorker()
+    worker.status.connect(lambda msg: splash.showMessage(msg, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter, Qt.GlobalColor.white))
+    worker.finished.connect(StartMainWindow)
+    
+    app.worker = worker 
+    worker.start()
+
     sys.exit(app.exec())

@@ -47,6 +47,7 @@ QHeaderView::section {
     padding: 4px; 
     border: 1px solid #555; 
 }
+QHeaderView {background-color: #444;}
 
 /* Input Fields */
 QLineEdit, QTextEdit { 
