@@ -1,0 +1,100 @@
+/* Table Widget */
+QTableWidget { 
+    background-color: hsl(230, 30%, 15%);
+    alternate-background-color: hsl(230, 30%, 20%); 
+    gridline-color: transparent;
+}
+QTableCornerButton::section {
+    background-color: hsl(230, 45%, 18%);
+    border: none;
+    border-bottom: 2px solid hsl(230, 40%, 25%);
+    border-right: 2px solid hsl(230, 40%, 25%);
+}
+QHeaderView::section { 
+    background-color: hsl(230, 45%, 18%); 
+    padding: 8px; 
+    border: none;
+    border-bottom: 2px solid hsl(230, 40%, 25%);
+    font-weight: bold;
+}
+QHeaderView::section:vertical {
+    border-right: 2px solid hsl(230, 40%, 25%);
+    color: hsl(0, 0%, 70%);
+}
+QHeaderView {background-color: transparent;}
+
+/* Input Fields */
+QLineEdit, QTextEdit { 
+    background-color: hsl(220, 40%, 20%); 
+    border: 1px solid hsl(220, 30%, 35%); 
+    border-radius: 4px; 
+    padding: 4px; color: white;
+}
+
+/* Buttons */
+QPushButton { 
+    background-color: hsl(220, 40%, 25%); 
+    border: 1px solid hsl(220, 30%, 40%); 
+    border-radius: 4px; 
+    padding: 6px 12px; 
+    min-width: 80px;
+}
+QPushButton:hover { background-color: hsl(220, 40%, 35%); }
+QPushButton:pressed { background-color: hsl(220, 40%, 20%); }
+QPushButton:disabled { 
+    background-color: hsl(220, 50%, 15%); 
+    color: hsl(220, 20%, 50%); 
+    border: 1px solid hsl(220, 40%, 20%); 
+}
+
+QPushButton[class="success"] { background-color: hsl(120, 50%, 30%); border-color: hsl(120, 50%, 15%); }
+QPushButton[class="success"]:hover { background-color: hsl(120, 60%, 40%); }
+QPushButton[class="success"]:disabled { 
+    background-color: hsl(120, 30%, 15%); 
+    color: hsl(220, 20%, 40%); 
+    border-color: hsl(120, 30%, 5%); 
+}
+
+QPushButton[class="danger"] { background-color: rgb(200, 40, 40); border-color: rgb(100, 20, 20); }
+QPushButton[class="danger"]:hover { background-color: rgb(245, 60, 60); }
+QPushButton[class="danger"]:disabled { 
+    background-color: rgb(70, 20, 20); 
+    color: hsl(220, 20%, 40%); 
+    border-color: rgb(40, 10, 10); 
+}
+
+/* Player */
+#PlayerFrame {
+    background-color: hsl(220, 50%, 15%);
+    border-radius: 5px;
+    margin-top: 5px;
+}
+
+#PlayBtn {
+    background-color: hsl(200, 80%, 40%);
+    border: 3px solid hsl(200, 100%, 20%);
+    color: white;
+}
+#PlayBtn:hover { background-color: hsl(200, 90%, 50%); }
+#PlayBtn:pressed { background-color: hsl(200, 100%, 30%); }
+
+#NowPlaying{
+    font-weight: bold; 
+    font-size: 14px; 
+    color: hsl(220, 20%, 90%);
+}
+
+#TimeLabel{
+    color: hsl(220, 20%, 70%); 
+    font-size: 11px; 
+    font-weight: bold;
+}
+
+QSlider::groove:horizontal { background: hsl(220, 40%, 20%); }
+QSlider::handle:horizontal { background: hsl(200, 100%, 40%); }
+QSlider::sub-page:horizontal { background: hsl(200, 80%, 50%); }
+
+#VolumeMenu {background-color: hsl(220, 50%, 15%);}
+#VolumeMenu QSlider::groove:vertical {background: hsl(220, 40%, 20%);}
+#VolumeMenu QSlider::handle:vertical {background: hsl(200, 100%, 40%);}
+#VolumeMenu QSlider::add-page:vertical { background: hsl(200, 80%, 50%); }

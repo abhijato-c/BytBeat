@@ -9,7 +9,7 @@ from PyQt6.QtGui import QAction, QActionGroup, QPixmap, QIcon
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QCheckBox, QFrame, QSlider, QSplashScreen,
-    QPushButton, QGroupBox, QMessageBox, QAbstractItemView, QStatusBar, QFileDialog, QMenu, QWidgetAction, QHBoxLayout, QLabel,
+    QPushButton, QMessageBox, QAbstractItemView, QStatusBar, QFileDialog, QMenu, QWidgetAction, QHBoxLayout, QLabel,
 )
 
 # Main Window
@@ -17,36 +17,37 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowIcon(QIcon(bk.ResourcePath('logo.ico')))
+        self.setWindowIcon(QIcon(bk.ResourcePath('Static/logo.ico')))
         self.setWindowTitle("BytBeat")
         self.setGeometry(100, 100, 1100, 700)
+        self.setStyleSheet(bk.LoadStylesheet('Downloader'))
         
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        self.MainLayout = QVBoxLayout(central_widget)
-        self.Columns = ['Title', 'Artist', 'Genre', 'Status']
+        MainWidget = QWidget()
+        self.setCentralWidget(MainWidget)
+        self.MainLayout = QVBoxLayout(MainWidget)
 
+        self.Columns = ['Title', 'Artist', 'Genre', 'Status']
         self.SortBy = 'Title'
-        self.SortOrder = True  
+        self.SortOrder = True
+        self.Mode = "Downloader"
 
         bk.UpdateSongStatuses()
 
+        self.SetupTabs()
         self.SetupMenu()
         self.SetupTable()
         self.SetupStatusbar()
         self.SetupPlayer()
-        self.ApplyStyles()
         self.RefreshList()
         self.FfmpegCheck()
+
+        self.ModeChanged("Downloader")
     
     def FfmpegCheck(self):
         if not bk.IsFfmpegInstalled(): 
             print("local install")
-            try:
-                bk.LocalFFMPEG()
-            except:
-                print("local install failed")
-                pass
+            try: bk.LocalFFMPEG()
+            except: print("local install failed")
         
         # Install failed
         if not bk.IsFfmpegInstalled(): 
@@ -54,11 +55,31 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(None, "FFmpeg not found", 
                             f"FFmpeg is required to run BytBeat. Please follow the instructions to install: \n {instruct}")
             sys.exit(1)
+    
+    def SetupTabs(self):
+        self.TabContainer = QWidget()
+        self.TabContainer.setObjectName("TabContainer")
+        self.TabLayout = QHBoxLayout(self.TabContainer)
+        self.TabLayout.setContentsMargins(5, 5, 5, 5)
+        self.TabLayout.setSpacing(5)
+        self.TabLayout.addStretch()
+
+        self.DownloaderTab = QPushButton("Downloader")
+        self.DownloaderTab.setObjectName("TabBtn")
+        self.DownloaderTab.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.DownloaderTab.clicked.connect(lambda: self.ModeChanged("Downloader"))
+        self.TabLayout.addWidget(self.DownloaderTab)
+
+        self.PlayerTab = QPushButton("Player")
+        self.PlayerTab.setObjectName("TabBtn")
+        self.PlayerTab.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.PlayerTab.clicked.connect(lambda: self.ModeChanged("Player"))
+        self.TabLayout.addWidget(self.PlayerTab)
+
+        self.TabLayout.addStretch()
+        self.MainLayout.addWidget(self.TabContainer)
 
     def SetupTable(self):
-        gb = QGroupBox("Library Status")
-        gb_layout = QVBoxLayout()
-        
         self.table = QTableWidget()
         self.table.setColumnCount(4) 
         self.table.setHorizontalHeaderLabels(self.Columns)
@@ -68,7 +89,7 @@ class MainWindow(QMainWindow):
         self.table.horizontalHeader().setSortIndicatorShown(True)
 
         self.table.verticalHeader().setVisible(True)
-        self.table.verticalHeader().setFixedWidth(40)
+        self.table.verticalHeader().setFixedWidth(45)
         
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -79,9 +100,7 @@ class MainWindow(QMainWindow):
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.ShowContextMenu)
 
-        gb_layout.addWidget(self.table)
-        gb.setLayout(gb_layout)
-        self.MainLayout.addWidget(gb)
+        self.MainLayout.addWidget(self.table)
 
     def SetupMenu(self):
         def CreateMenuWidget(menu, text, color_class, callback, Close=True):
@@ -241,7 +260,7 @@ class MainWindow(QMainWindow):
         self.VolSlider.setValue(100)
         self.VolSlider.valueChanged.connect(lambda v: AudioOut.setVolume(v / 100))
 
-        VolAction = QWidgetAction(self)
+        VolAction = QWidgetAction(self.VolMenu)
         VolAction.setDefaultWidget(self.VolSlider)
         self.VolMenu.addAction(VolAction)
 
@@ -252,6 +271,20 @@ class MainWindow(QMainWindow):
         PlayerLayout.addLayout(ScrubberLayout)
         PlayerLayout.addWidget(self.VolBtn, alignment=Qt.AlignmentFlag.AlignRight)
         self.MainLayout.addWidget(self.PlayerFrame, alignment=Qt.AlignmentFlag.AlignHCenter)
+    
+    def ModeChanged(self, name):
+        self.Mode = name
+        if name == "Downloader":
+            self.DownloaderTab.setProperty("active", True)
+            self.PlayerTab.setProperty("active", False)
+        elif name == "Player":
+            self.DownloaderTab.setProperty("active", False)
+            self.PlayerTab.setProperty("active", True)
+        
+        self.DownloaderTab.style().unpolish(self.DownloaderTab)
+        self.DownloaderTab.style().polish(self.DownloaderTab)
+        self.PlayerTab.style().unpolish(self.PlayerTab)
+        self.PlayerTab.style().polish(self.PlayerTab)
     
     def PlaySong(self, index):
         title = self.table.item(index.row(), 0).text()
@@ -492,15 +525,10 @@ class MainWindow(QMainWindow):
         bk.SaveSongfile()
         event.accept()
 
-    def ApplyStyles(self):
-        with open(bk.ResourcePath('style.css'), "r") as f:
-            stylesheet = f.read()
-        self.setStyleSheet(stylesheet)
-
 if __name__ == "__main__":
     def StartMainWindow(success):
         if success:
-            sleep(1)
+            #sleep(1)
             window = MainWindow()
             window.show()
             splash.finish(window)
@@ -512,11 +540,11 @@ if __name__ == "__main__":
     
     app = QApplication(sys.argv)
     app.setDesktopFileName("BytBeat")
-    app.setWindowIcon(QIcon(bk.ResourcePath('logo.ico')))
+    app.setWindowIcon(QIcon(bk.ResourcePath('Static/logo.ico')))
     app.setStyle("Fusion")
 
     pixmap = QPixmap()
-    pixmap.load(bk.ResourcePath('BytBeat.png'))
+    pixmap.load(bk.ResourcePath('Static/BytBeat.png'))
     pixmap = pixmap.scaledToHeight(500)
     splash = QSplashScreen(pixmap)
     splash.showMessage("Loading app", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter, Qt.GlobalColor.white)

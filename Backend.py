@@ -410,3 +410,13 @@ def ResourcePath(RelPath):
         try: Base = sys._MEIPASS
         except Exception: Base = os.path.abspath(".")
         return os.path.join(Base, RelPath)
+
+def LoadStylesheet(name):
+    with open(ResourcePath('Styles/Global.css'), "r") as f:
+        stylesheet = f.read()
+    if not name: return stylesheet
+
+    path = ResourcePath(f'Styles/{name}.css')
+    with open(path, "r") as f:
+        stylesheet += f.read()
+    return stylesheet
