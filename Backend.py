@@ -102,17 +102,17 @@ def Init():
 
     SongDF = pd.read_csv(SongFile).fillna("").sort_values(by='Title').reset_index(drop=True)
 
-def URLtoID(URL):
+def URLtoID(URL: str) -> str:
     return URL.split('&')[0].split('watch?v=')[-1]
 
-def DownloadCover(id, title):
+def DownloadCover(id: str, title: str):
     global ImageDir
 
     url = f'https://img.youtube.com/vi/{id}/hqdefault.jpg'
     with open((ImageDir / (title+'.jpg')), 'wb') as fil:
         fil.write(requests.get(url).content)
 
-def AddCoverArt(SongPath, ImgPath, ext):
+def AddCoverArt(SongPath: Path, ImgPath: Path, ext: str):
     with open(ImgPath, 'rb') as ImgFil:
         Img = ImgFil.read()
 
@@ -155,7 +155,7 @@ def AddCoverArt(SongPath, ImgPath, ext):
         print("Unsupported file extension")
         return
 
-def DownloadSong(id, title, encoding = 'mp3', artist = '', genre = ''):
+def DownloadSong(id: str, title: str, encoding: str = 'mp3', artist: str = '', genre: str = ''):
     global TempFolder, MusicDir, ImageDir, SongDF
 
     CODEC_MAP = {
@@ -170,10 +170,9 @@ def DownloadSong(id, title, encoding = 'mp3', artist = '', genre = ''):
     try:
         video = YoutubeDL({
             'format':'251', #Highest quality as far as I've found out
-            'paths':{'home':str(TempFolder)}, #Download the temp song before converting
+            'paths':{'home':str(TempFolder)},
             'outtmpl':TempFilename,
-            'quiet': True,
-            'no_warnings': True
+            'javascript_runtime': 'quickjs',
         })
         video.download(['https://www.youtube.com/watch?v='+id])
     except:
@@ -216,7 +215,7 @@ def DownloadSong(id, title, encoding = 'mp3', artist = '', genre = ''):
     except:
         return 1
 
-def AddSongToSongfile(title, URL, artist = '', genre = ''):
+def AddSongToSongfile(title: str, URL: str, artist: str = '', genre: str = ''):
     global SongDF
 
     id = URLtoID(URL)
@@ -224,7 +223,7 @@ def AddSongToSongfile(title, URL, artist = '', genre = ''):
     SongDF = pd.concat([SongDF, row], ignore_index=True)
     SaveSongfile()
 
-def DeleteSongFromDisk(title):
+def DeleteSongFromDisk(title: str):
     global SongDF, MusicDir
 
     SongDF.loc[SongDF['Title'] == title, 'Status'] = 'Pending Download'
@@ -234,7 +233,7 @@ def DeleteSongFromDisk(title):
             try: os.remove(fpath)
             except Exception as e: print(f"Error deleting file: {e}")
 
-def UpdateSongDetails(title, NewTitle = None, artist = None, genre = None, URL = None):
+def UpdateSongDetails(title: str, NewTitle: str | None = None, artist: str | None = None, genre: str | None = None, URL: str | None = None):
     global SongDF, TempFolder, MusicDir
 
     idx = SongDF.index[SongDF['Title'] == title].tolist()[0]
@@ -284,22 +283,22 @@ def UpdateSongStatuses():
             SongDF.at[i, 'Status'] = 'Pending Download'
     SaveSongfile()
 
-def GetSongMetadata(id):
+def GetSongMetadata(id: str):
     url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={id}&format=json"
     resp = requests.get(url, timeout=2)
     data = resp.json()
     return [data.get("title"), data.get("author_name")]
 
-def ChangeMusicDir(NewDir):
-    global MusicDir, Config
+def ChangeMusicDir(NewDir: Path):
+    global MusicDir, Config, ConfigFile
 
     MusicDir = Path(NewDir)
     Config['Music_Directory'] = str(MusicDir)
     UpdateSongStatuses()
-    with open(ConfigFile, 'w', encoding='utf-8') as f:
+    with open(ConfigFile, 'w') as f:
         json.dump(Config, f, indent=4)
 
-def UpdateDefaultFormat(fmt):
+def UpdateDefaultFormat(fmt: str):
     global Config, ConfigFile
 
     Config["Encoding"] = fmt
@@ -405,13 +404,13 @@ def LocalFFMPEG():
     sep = ";" if os_type=='windows' else ":"
     if BinStr not in os.environ["PATH"]: os.environ["PATH"] = BinStr + sep + os.environ["PATH"]
 
-def ResourcePath(RelPath):
+def ResourcePath(RelPath: str) -> str:
         # Change path for pyinstaller shtuff
         try: Base = sys._MEIPASS
         except Exception: Base = os.path.abspath(".")
         return os.path.join(Base, RelPath)
 
-def LoadStylesheet(name):
+def LoadStylesheet(name: str) -> str:
     with open(ResourcePath('Styles/Global.css'), "r") as f:
         stylesheet = f.read()
     if not name: return stylesheet
@@ -420,3 +419,6 @@ def LoadStylesheet(name):
     with open(path, "r") as f:
         stylesheet += f.read()
     return stylesheet
+
+def GetSongDetail(title: str, detail: str) -> str:
+    return SongDF.loc[SongDF['Title'] == title, detail]
