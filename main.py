@@ -21,7 +21,7 @@ class MainWindow(QMainWindow):
 
         self.setWindowIcon(QIcon(bk.ResourcePath('Static/logo.ico')))
         self.setWindowTitle("BytBeat")
-        self.setGeometry(100, 100, 1100, 700)
+        self.setGeometry(100, 100, 1100, 600)
         self.setStyleSheet(bk.LoadStylesheet('Main'))
         
         MainWidget = QWidget()
@@ -42,6 +42,7 @@ class MainWindow(QMainWindow):
 
         self.ModeChanged("Downloader")
         self.UpdateSelection([])
+        self.RefreshList()
     
     def FfmpegCheck(self):
         if not bk.IsFfmpegInstalled(): 

@@ -24,7 +24,6 @@ class Downloader(QWidget):
 
         self.SetupTable()
         self.SetupPlayer()
-        self.RefreshList()
     
     def SetupTable(self):
         self.table = QTableWidget()
@@ -236,10 +235,11 @@ class Downloader(QWidget):
         margin = -(HandleSize - GrooveHeight) // 2 # Magic formula to vertically center handle, idk how it works
 
         self.SeekSlider.setStyleSheet(f"""
-            QSlider {{
-                height: {HandleSize+1}px; /* Prevent the handle from clipping */
-            }}
             QSlider::groove:horizontal {{
+                height: {GrooveHeight}px;
+                border-radius: {GrooveHeight // 2}px;
+            }}
+            QSlider::sub-page:horizontal{{
                 height: {GrooveHeight}px;
                 border-radius: {GrooveHeight // 2}px;
             }}
@@ -250,6 +250,7 @@ class Downloader(QWidget):
                 border-radius: {HandleSize // 2}px;
             }}
         """)
+        self.SeekSlider.setFixedHeight(HandleSize+1)
 
         # Volume btn
         VolBtnSiz = int(PlayerHeight * 0.7)

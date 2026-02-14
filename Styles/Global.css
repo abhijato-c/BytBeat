@@ -13,6 +13,7 @@ QScrollBar:horizontal {height: 10px;}
 QScrollBar::handle {
     background-color: hsl(220, 30%, 30%);
     border-radius: 5px;
+    min-height: 30px;
 }
 
 QScrollBar::handle:hover {background-color: hsl(220, 20%, 40%);}

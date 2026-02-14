@@ -421,4 +421,4 @@ def LoadStylesheet(name: str) -> str:
     return stylesheet
 
 def GetSongDetail(title: str, detail: str) -> str:
-    return SongDF.loc[SongDF['Title'] == title, detail]
+    return SongDF.loc[SongDF['Title'] == title, detail].item()

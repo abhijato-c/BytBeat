@@ -1,9 +1,59 @@
-#Sidebar {
-    background-color: hsl(220, 50%, 20%);
+#Sidebar, #SidebarContent {
+    background-color: hsl(220, 50%, 15%);
     border-radius: 20px;
 }
 
 #PlayWin {
-    background-color: hsl(220, 50%, 20%);
+    background-color: hsl(220, 50%, 15%);
     border-radius: 20px;
 }
+
+#SongBtn {
+    border: none;
+    border-radius: 10px;
+}
+#SongBtn { background-color: hsl(220, 50%, 20%); }
+#SongBtn:hover { background-color: hsl(220, 50%, 23%); }
+#SongBtn[active="true"] { background-color: hsl(220, 80%, 30%); }
+#SongBtn:hover[active="true"] { background-color: hsl(220, 80%, 35%); }
+#SongBtn:pressed { background-color: hsl(220, 40%, 20%); }
+
+#SongBtn #Image{
+    background-color: hsl(220, 50%, 15%);
+}
+#SongBtn #DetailsCard {
+    background-color: transparent;
+    border-radius: 5px;
+}
+#SongBtn #Title{
+    color: hsl(0, 0%, 90%);
+    font-weight: bold;
+}
+#SongBtn #Artist{
+    color: hsl(0, 0%, 70%);
+}
+#SongBtn #Status {
+    border-top-left-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+}
+
+#PlayWin #Image {
+    background-color: hsl(220, 60%, 12%);
+}
+
+#PlayWin #Title {
+    color: hsl(0, 0%, 90%);
+    font-size: 24px;
+    font-weight: bold;
+}
+
+#PlayWin #Artist {
+    color: hsl(0, 0%, 70%);
+    font-size: 18px;
+}
+
+QSlider::groove:horizontal { background: hsl(220, 40%, 20%); }
+QSlider::handle:horizontal { background: hsl(200, 100%, 40%); }
+QSlider::sub-page:horizontal { background: hsl(200, 80%, 50%); }
