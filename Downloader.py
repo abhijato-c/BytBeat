@@ -253,7 +253,6 @@ class Downloader(QWidget):
                 border-radius: {GrooveHeight // 2}px;
             }}
             QSlider::sub-page:horizontal{{
-                height: {GrooveHeight}px;
                 border-radius: {GrooveHeight // 2}px;
             }}
             QSlider::handle:horizontal {{
@@ -295,9 +294,6 @@ class Downloader(QWidget):
                 border-radius: {HandleSize // 2}px;
             }}
             QSlider::add-page:vertical {{
-                border-radius: {HandleSize // 2}px;
-            }}
-            QSlider::sub-page:vertical {{
                 border-radius: {GrooveWidth // 2}px;
             }}
         """)

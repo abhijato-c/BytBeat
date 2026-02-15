@@ -8,6 +8,14 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QFrame, QScrollArea, QPushButton, QHBoxLayout, QLabel, QSlider, QMessageBox
 )
 
+'''
+todo: 
+volume slider
+Time label
+Keyboard shortcuts (space for play/pause, left/right for prev/next)
+'''
+
+
 class Player(QWidget):
     SelectionUpdate = pyqtSignal(list)
 
@@ -282,14 +290,16 @@ class Player(QWidget):
         DetailsLayout.addStretch(1)
 
         TitleLabel = QLabel(title)
-        TitleLabel.title = title
-        TitleLabel.installEventFilter(self)
         TitleLabel.setObjectName("Title")
+        TitleLabel.FullText = title
+        TitleLabel.installEventFilter(self)
         DetailsLayout.addWidget(TitleLabel)
         DetailsLayout.addStretch(1)
 
         ArtistLabel = QLabel(artist)
         ArtistLabel.setObjectName("Artist")
+        ArtistLabel.FullText = artist
+        ArtistLabel.installEventFilter(self)
         DetailsLayout.addWidget(ArtistLabel)
         DetailsLayout.addStretch(1)
         
@@ -374,7 +384,7 @@ class Player(QWidget):
     
     def eventFilter(self, source, event):
         if event.type() == QEvent.Type.Resize and isinstance(source, QLabel):
-            text = source.title
+            text = source.FullText
             metrics = QFontMetrics(source.font())
             elided = metrics.elidedText(text, Qt.TextElideMode.ElideRight, source.width())
             source.setText(elided)
@@ -421,7 +431,6 @@ class Player(QWidget):
 
         ModeBtnSize = int(CoverSize * 0.17)
         IconSiz = int(ModeBtnSize * 0.5)
-        spacing = int(ModeBtnSize * 0.1)
         for btn in self.ModeBtns.values():
             btn.setStyleSheet(f"border-radius: {int(ModeBtnSize/2)}px; font-size: {int(ModeBtnSize*0.4)}px; ")
             btn.setIconSize(QSize(IconSiz, IconSiz))
@@ -454,7 +463,6 @@ class Player(QWidget):
                 border-radius: {GrooveHeight // 2}px;
             }}
             QSlider::sub-page:horizontal{{
-                height: {GrooveHeight}px;
                 border-radius: {GrooveHeight // 2}px;
             }}
             QSlider::handle:horizontal {{
@@ -465,3 +473,27 @@ class Player(QWidget):
             }}
         """)
         self.SeekSlider.setFixedSize(GrooveWidth, HandleSize+1)
+
+        # Volume slider
+        HandleSize = int(CoverSize * 0.05)
+        GrooveWidth = int(CoverSize * 0.02)
+        GrooveHeight = int(CoverSize * 0.9)
+        margin = -(HandleSize - GrooveWidth) // 2
+
+        self.VolSlider.setStyleSheet(f"""
+            QSlider::groove:vertical {{
+                height: {GrooveHeight}px;
+                width: {GrooveWidth}px;
+                border-radius: {GrooveWidth // 2}px;
+            }}
+            QSlider::add-page:vertical {{
+                border-radius: {GrooveWidth // 2}px;
+            }}
+            QSlider::handle:vertical {{
+                width: {HandleSize}px;
+                height: {HandleSize}px;
+                margin: 0 {margin}px;
+                border-radius: {HandleSize // 2}px;
+            }}
+        """)
+        self.VolSlider.setFixedSize(HandleSize + 1, GrooveHeight + 1)

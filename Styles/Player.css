@@ -61,3 +61,7 @@
 QSlider::groove:horizontal { background: hsl(220, 40%, 20%); }
 QSlider::handle:horizontal { background: hsl(200, 100%, 40%); }
 QSlider::sub-page:horizontal { background: hsl(200, 80%, 50%); }
+
+QSlider::groove:vertical {background: hsl(220, 40%, 20%);}
+QSlider::handle:vertical {background: hsl(200, 100%, 40%);}
+QSlider::add-page:vertical { background: hsl(200, 80%, 50%); }

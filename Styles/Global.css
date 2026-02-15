@@ -50,3 +50,8 @@ QMenu {
 }
 #TabBtn:hover { background-color: hsl(220, 30%, 20%); }
 #TabBtn[active="true"] { background-color: hsl(220, 90%, 60%);}
+
+
+QStatusBar{
+    background-color: hsl(230, 50%, 13%);
+}
