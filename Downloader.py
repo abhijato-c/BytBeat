@@ -1,6 +1,7 @@
 import Backend as bk
 
-from PyQt6.QtCore import Qt, QUrl, QPoint, pyqtSignal
+from PyQt6.QtCore import Qt, QUrl, QPoint, pyqtSignal, QSize
+from PyQt6.QtGui import QIcon
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem, QHeaderView, QFrame, QSlider,
@@ -50,16 +51,18 @@ class Downloader(QWidget):
     
     def SetupPlayer(self):
         def SetPlaybuttonText():
-            if self.Player.playbackState() == QMediaPlayer.PlaybackState.PlayingState: self.PlayBtn.setText("⏸")
-            elif self.Player.playbackState() == QMediaPlayer.PlaybackState.PausedState: self.PlayBtn.setText("▶")
+            if self.AudioPlayer.playbackState() == QMediaPlayer.PlaybackState.PlayingState: 
+                self.PlayBtn.setIcon(QIcon(bk.ResourcePath('Static/Pause.png')))
+            elif self.AudioPlayer.playbackState() == QMediaPlayer.PlaybackState.PausedState: 
+                self.PlayBtn.setIcon(QIcon(bk.ResourcePath('Static/Play.png')))
 
         def TogglePlay():
-            if self.Player.playbackState() == QMediaPlayer.PlaybackState.PlayingState: self.Player.pause()
-            elif self.Player.playbackState() == QMediaPlayer.PlaybackState.PausedState: self.Player.play()
+            if self.AudioPlayer.playbackState() == QMediaPlayer.PlaybackState.PlayingState: self.AudioPlayer.pause()
+            elif self.AudioPlayer.playbackState() == QMediaPlayer.PlaybackState.PausedState: self.AudioPlayer.play()
 
         def MediaStatusChanged(status):
             if status == QMediaPlayer.MediaStatus.EndOfMedia:
-                self.PlayBtn.setText("▶")
+                self.PlayBtn.setIcon(QIcon(bk.ResourcePath('Static/Play.png')))
                 self.SeekSlider.setValue(0)
         
         def FormatTime(ms):
@@ -69,7 +72,7 @@ class Downloader(QWidget):
         
         def PositionChanged(pos):
             self.SeekSlider.setValue(pos)
-            TimeLbl.setText(f"{FormatTime(pos)} / {FormatTime(self.Player.duration())}")
+            self.TimeLabel.setText(f"{FormatTime(pos)} / {FormatTime(self.AudioPlayer.duration())}")
         
         def ShowVolumeMenu():
             ButtonPos = self.VolBtn.mapToGlobal(self.VolBtn.rect().topLeft())
@@ -87,23 +90,24 @@ class Downloader(QWidget):
 
             self.VolMenu.exec(PopupPos)
 
-        self.Player = QMediaPlayer()
-        AudioOut = QAudioOutput()
-        AudioOut.setVolume(1.0)
-        self.Player.setAudioOutput(AudioOut)
+        self.AudioPlayer = QMediaPlayer()
+        self.AudioOut = QAudioOutput()
+        self.AudioOut.setVolume(1.0)
+        self.AudioPlayer.setAudioOutput(self.AudioOut)
 
-        self.Player.positionChanged.connect(PositionChanged)
-        self.Player.durationChanged.connect(lambda duration: self.SeekSlider.setRange(0, duration))
-        self.Player.mediaStatusChanged.connect(MediaStatusChanged)
-        self.Player.playbackStateChanged.connect(SetPlaybuttonText)
+        self.AudioPlayer.positionChanged.connect(PositionChanged)
+        self.AudioPlayer.durationChanged.connect(lambda duration: self.SeekSlider.setRange(0, duration))
+        self.AudioPlayer.mediaStatusChanged.connect(MediaStatusChanged)
+        self.AudioPlayer.playbackStateChanged.connect(SetPlaybuttonText)
 
         self.PlayerFrame = QFrame()
         self.PlayerFrame.setObjectName("PlayerFrame")
         PlayerLayout = QHBoxLayout(self.PlayerFrame)
 
         # Play Button
-        self.PlayBtn = QPushButton("▶") # Unicode emoji 
+        self.PlayBtn = QPushButton()
         self.PlayBtn.setObjectName("PlayBtn")
+        self.PlayBtn.setIcon(QIcon(bk.ResourcePath('Static/Play.png')))
         self.PlayBtn.clicked.connect(TogglePlay)
         PlayerLayout.addWidget(self.PlayBtn)
 
@@ -118,17 +122,17 @@ class Downloader(QWidget):
         TopLayout.addWidget(self.NowPlayingLbl, Qt.AlignmentFlag.AlignHCenter)
 
         # Time indicator
-        TimeLbl = QLabel("0:00 / 0:00")
-        TimeLbl.setObjectName("TimeLabel")
-        TopLayout.addWidget(TimeLbl, alignment=Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight)
+        self.TimeLabel = QLabel("0:00 / 0:00")
+        self.TimeLabel.setObjectName("TimeLabel")
+        TopLayout.addWidget(self.TimeLabel, alignment=Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight)
         ScrubberLayout.addLayout(TopLayout)
 
         # Slider
         self.SeekSlider = QSlider(Qt.Orientation.Horizontal)
         self.SeekSlider.setRange(0, 0)
-        self.SeekSlider.sliderMoved.connect(lambda position: self.Player.setPosition(position))
-        self.SeekSlider.sliderPressed.connect(lambda: self.Player.pause()) # Pause while dragging
-        self.SeekSlider.sliderReleased.connect(lambda: self.Player.play()) # Resume after drag
+        self.SeekSlider.sliderMoved.connect(lambda position: self.AudioPlayer.setPosition(position))
+        self.SeekSlider.sliderPressed.connect(lambda: self.AudioPlayer.pause()) # Pause while dragging
+        self.SeekSlider.sliderReleased.connect(lambda: self.AudioPlayer.play()) # Resume after drag
         ScrubberLayout.addWidget(self.SeekSlider)
 
         # Volume
@@ -138,19 +142,21 @@ class Downloader(QWidget):
         self.VolSlider = QSlider(Qt.Orientation.Vertical)
         self.VolSlider.setRange(0, 100)
         self.VolSlider.setValue(100)
-        self.VolSlider.valueChanged.connect(lambda v: AudioOut.setVolume(v / 100))
+        self.VolSlider.valueChanged.connect(lambda v: self.AudioOut.setVolume(v / 100))
 
         VolAction = QWidgetAction(self.VolMenu)
         VolAction.setDefaultWidget(self.VolSlider)
         self.VolMenu.addAction(VolAction)
 
-        self.VolBtn = QPushButton("🔊") # Unicode emojis cus I dont want to make image icons...
+        self.VolBtn = QPushButton()
         self.VolBtn.setObjectName("VolBtn")
+        self.VolBtn.setIcon(QIcon(bk.ResourcePath('Static/Volume.png')))
         self.VolBtn.clicked.connect(ShowVolumeMenu)
 
         PlayerLayout.addLayout(ScrubberLayout)
         PlayerLayout.addWidget(self.VolBtn, alignment=Qt.AlignmentFlag.AlignRight)
-        self.MainLayout.addWidget(self.PlayerFrame, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        self.MainLayout.addWidget(self.PlayerFrame, alignment = Qt.AlignmentFlag.AlignHCenter)
     
     def PlaySong(self, index):
         title = self.table.item(index.row(), 0).text()
@@ -167,11 +173,13 @@ class Downloader(QWidget):
             QMessageBox.warning(self, "Song not downloaded", f"Please download '{title}' first before playing!")
             return
         
-        self.Player.setSource(QUrl.fromLocalFile(str(Path)))
-        self.Player.play()
+        self.AudioPlayer.setSource(QUrl.fromLocalFile(str(Path)))
+        self.AudioPlayer.play()
         self.NowPlayingLbl.setText(title)
     
     def RefreshList(self):
+        self.table.blockSignals(True)
+
         # Sort list
         bk.SongDF.sort_values(by=self.SortBy, ascending=self.SortOrder, inplace=True)
         bk.SongDF.reset_index(drop=True, inplace=True)
@@ -195,6 +203,7 @@ class Downloader(QWidget):
             self.table.setItem(row_idx, 3, make_item(row['Status'], True))
         
         self.SelectionChanged()
+        self.table.blockSignals(False)
     
     def SelectionChanged(self):
         rows = self.table.selectionModel().selectedRows()
@@ -221,18 +230,22 @@ class Downloader(QWidget):
         width = self.width()
         height = self.height()
 
-        PlayerWidth = int(width * 0.75)
-        PlayerHeight = int(height * 0.1)
-        
+        PlayerWidth = int(width * 0.7)
+        PlayerHeight = int(height * 0.12)
         self.PlayerFrame.setFixedSize(PlayerWidth, PlayerHeight)
+
         PlayBtnSize = int(PlayerHeight * 0.7)
-        self.PlayBtn.setStyleSheet(f"border-radius: {PlayBtnSize // 2}px; font-size: {int(PlayBtnSize * 0.4)}px;")
+        self.PlayBtn.setStyleSheet(f"border-radius: {PlayBtnSize // 2}px;")
         self.PlayBtn.setFixedSize(PlayBtnSize, PlayBtnSize)
+        self.PlayBtn.setIconSize(QSize(int(PlayBtnSize * 0.4), int(PlayBtnSize * 0.4)))
+
+        self.NowPlayingLbl.setStyleSheet(f"font-size: {int(PlayerHeight * 0.23)}px;")
+        self.TimeLabel.setStyleSheet(f"font-size: {int(PlayerHeight * 0.18)}px;")
 
         # Scrub Slider
         HandleSize = int(PlayerHeight * 0.2)
         GrooveHeight = int(PlayerHeight * 0.1)
-        margin = -(HandleSize - GrooveHeight) // 2 # Magic formula to vertically center handle, idk how it works
+        margin = -(HandleSize - GrooveHeight) // 2 # Magic formula to vertically center handle
 
         self.SeekSlider.setStyleSheet(f"""
             QSlider::groove:horizontal {{
@@ -254,8 +267,8 @@ class Downloader(QWidget):
 
         # Volume btn
         VolBtnSiz = int(PlayerHeight * 0.7)
-        self.VolBtn.setStyleSheet(f"font-size: {int(VolBtnSiz * 0.4)}px;")
-        self.VolBtn.setFixedSize(VolBtnSiz,VolBtnSiz)
+        self.VolBtn.setFixedSize(VolBtnSiz, VolBtnSiz)
+        self.VolBtn.setIconSize(QSize(int(VolBtnSiz * 0.4), int(VolBtnSiz * 0.4)))
 
         # Volume slider
         PopupHeight = int(PlayerHeight * 3)

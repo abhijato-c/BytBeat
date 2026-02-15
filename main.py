@@ -163,10 +163,12 @@ class MainWindow(QMainWindow):
         if name == "Downloader":
             self.DownloaderTab.setProperty("active", True)
             self.PlayerTab.setProperty("active", False)
+            self.Player.AudioPlayer.pause()
             self.Win.setCurrentIndex(0)
         elif name == "Player":
             self.DownloaderTab.setProperty("active", False)
             self.PlayerTab.setProperty("active", True)
+            self.Downloader.AudioPlayer.pause()
             self.Win.setCurrentIndex(1)
         
         self.DownloaderTab.style().unpolish(self.DownloaderTab)
@@ -282,8 +284,9 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     def StartMainWindow(success):
+        global splash, window
+
         if success:
-            #sleep(1)
             window = MainWindow()
             window.show()
             splash.finish(window)
@@ -305,11 +308,10 @@ if __name__ == "__main__":
     splash.showMessage("Loading app", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter, Qt.GlobalColor.white)
     splash.show()
 
-    worker = InitWorker()
-    worker.status.connect(lambda msg: splash.showMessage(msg, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter, Qt.GlobalColor.white))
-    worker.finished.connect(StartMainWindow)
-    
-    app.worker = worker 
-    worker.start()
+    app.worker = InitWorker()
+    app.worker.status.connect(lambda msg: splash.showMessage(msg, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter, Qt.GlobalColor.white))
+    app.worker.finished.connect(StartMainWindow)
+    app.worker.start()
+    window = None
 
     sys.exit(app.exec())

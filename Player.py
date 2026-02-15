@@ -8,8 +8,6 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QFrame, QScrollArea, QPushButton, QHBoxLayout, QLabel, QSlider, QMessageBox
 )
 
-#TODO:PAUSE 
-
 class Player(QWidget):
     SelectionUpdate = pyqtSignal(list)
 
