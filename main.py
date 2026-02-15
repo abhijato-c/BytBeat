@@ -153,6 +153,7 @@ class MainWindow(QMainWindow):
         self.Win.addWidget(self.Downloader)
 
         self.Player = Player()
+        self.Player.SelectionUpdate.connect(self.UpdateSelection)
         self.Win.addWidget(self.Player)
 
         self.MainLayout.addWidget(self.Win)

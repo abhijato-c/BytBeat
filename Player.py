@@ -1,9 +1,9 @@
 import random
 import Backend as bk
 
-from PyQt6.QtCore import Qt, QUrl, QPoint, pyqtSignal, QSize
+from PyQt6.QtCore import Qt, QUrl, pyqtSignal, QSize, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QEvent
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
-from PyQt6.QtGui import QPixmap, QIcon
+from PyQt6.QtGui import QPixmap, QIcon, QFontMetrics
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QFrame, QScrollArea, QPushButton, QHBoxLayout, QLabel, QSlider, QMessageBox
 )
@@ -20,8 +20,9 @@ class Player(QWidget):
         self.MainLayout = QHBoxLayout(self)
 
         self.SongButtons = {}
-        self.NavBtns = {}
+        self.ModeBtns = {}
         self.CurrentSong = None
+        self.PlayMode = 'Play Once'
 
         self.SetupSidebar()
         self.MainLayout.addStretch(1)
@@ -114,14 +115,14 @@ class Player(QWidget):
             
             self.PlaySong(song['Title'])
         
-        def CreateNavBtn(text):
+        def CreateModeBtn(text):
             btn = QPushButton()
-            btn.setObjectName("NavBtn")
+            btn.setObjectName("ModeBtn")
             icon = QIcon(bk.ResourcePath(f'Static/{text}.png'))
             btn.setIcon(icon)
             btn.clicked.connect(lambda: self.SetPlayMode(text))
             self.PlayModeLayout.addWidget(btn, alignment = Qt.AlignmentFlag.AlignRight)
-            self.NavBtns[text] = btn
+            self.ModeBtns[text] = btn
 
         self.AudioPlayer = QMediaPlayer()
         self.AudioOut = QAudioOutput()
@@ -141,17 +142,17 @@ class Player(QWidget):
         TopLayout = QHBoxLayout()
 
         self.PlayModeLayout = QVBoxLayout()
-        CreateNavBtn('Play Once')
-        CreateNavBtn('Sequential')
-        CreateNavBtn('Shuffle')
-        CreateNavBtn('Repeat')
+        CreateModeBtn('Play Once')
+        CreateModeBtn('Sequential')
+        CreateModeBtn('Shuffle')
+        CreateModeBtn('Repeat')
         TopLayout.addLayout(self.PlayModeLayout)
 
         self.SongImage = QLabel()
         self.SongImage.setObjectName("Image")
         pixmap = QPixmap(bk.ResourcePath('Static/Note.png'))
         self.SongImage.pix = pixmap
-        self.SongImage.setPixmap(pixmap)
+        self.SongImage.setPixmap(pixmap.scaled(10, 10, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         self.SongImage.setAlignment(Qt.AlignmentFlag.AlignCenter)
         TopLayout.addWidget(self.SongImage, alignment = Qt.AlignmentFlag.AlignCenter)
 
@@ -212,13 +213,49 @@ class Player(QWidget):
         self.MainLayout.addWidget(self.PlayWin)
     
     def SetPlayMode(self, mode):
+        CloseBtn = self.ModeBtns[self.PlayMode]
+        OpenBtn = self.ModeBtns[mode]
         self.PlayMode = mode
 
-        for name, btn in self.NavBtns.items():
-            btn.setProperty("active", name == mode)
-            btn.style().unpolish(btn)
-            btn.style().polish(btn)
-            btn.update()
+        CloseBtn.setProperty("active", False)
+        CloseBtn.setText("")
+        CloseBtn.style().unpolish(CloseBtn)
+        CloseBtn.style().polish(CloseBtn)
+
+        OpenBtn.setProperty("active", True)
+        OpenBtn.setText("    " + mode)
+        OpenBtn.style().unpolish(OpenBtn)
+        OpenBtn.style().polish(OpenBtn)
+
+        self.AnimateModeBtn(CloseBtn, OpenBtn)
+
+    
+    def AnimateModeBtn(self, ClosingBtn, OpeningBtn, duration=150):
+        self.AnimGroup = QParallelAnimationGroup()
+
+        OpenMin = QPropertyAnimation(OpeningBtn, b"minimumWidth")
+        OpenMax = QPropertyAnimation(OpeningBtn, b"maximumWidth")
+        CloseMin = QPropertyAnimation(ClosingBtn, b"minimumWidth")
+        CloseMax = QPropertyAnimation(ClosingBtn, b"maximumWidth")
+
+        for anim in [OpenMin, OpenMax, CloseMin, CloseMax]:
+            anim.setDuration(duration)
+            anim.setEasingCurve(QEasingCurve.Type.InOutQuart)
+        
+        for anim in [OpenMin, OpenMax]:
+            anim.setStartValue(OpeningBtn.height())
+            anim.setEndValue(OpeningBtn.sizeHint().width())
+        
+        for anim in [CloseMin, CloseMax]:
+            anim.setStartValue(ClosingBtn.width())
+            anim.setEndValue(ClosingBtn.height())
+
+        self.AnimGroup.addAnimation(OpenMin)
+        self.AnimGroup.addAnimation(OpenMax)
+        self.AnimGroup.addAnimation(CloseMin)
+        self.AnimGroup.addAnimation(CloseMax)
+
+        self.AnimGroup.start()
     
     def AddSongBtn(self, title):
         artist = bk.GetSongDetail(title, 'Artist')
@@ -247,6 +284,8 @@ class Player(QWidget):
         DetailsLayout.addStretch(1)
 
         TitleLabel = QLabel(title)
+        TitleLabel.title = title
+        TitleLabel.installEventFilter(self)
         TitleLabel.setObjectName("Title")
         DetailsLayout.addWidget(TitleLabel)
         DetailsLayout.addStretch(1)
@@ -284,18 +323,22 @@ class Player(QWidget):
         for title in extras:
             self.SongButtons[title].setParent(None)
             del self.SongButtons[title]
+        
+        if self.CurrentSong and self.AudioPlayer.source().isEmpty() and bk.GetSongDetail(self.CurrentSong, 'Status') == "Downloaded":
+            self.PlaySong(self.CurrentSong)
+            self.AudioPlayer.pause()
+        
+        self.resizeEvent(None)
     
     def PlaySong(self, title):
+        self.AudioPlayer.stop()
+
         Path = None
         for ext in ['.mp3', '.flac', '.m4a']:
             path = bk.MusicDir / f"{title}{ext}"
             if path.exists():
                 Path = path
                 break
-        
-        if not Path:
-            QMessageBox.warning(self, "Song not downloaded", f"Please download '{title}' first before playing!")
-            return
 
         if self.CurrentSong:
             OldBtn = self.SongButtons[self.CurrentSong]
@@ -324,8 +367,21 @@ class Player(QWidget):
         )
         self.SongImage.setPixmap(scaled)
         
-        self.AudioPlayer.setSource(QUrl.fromLocalFile(str(Path)))
-        self.AudioPlayer.play()
+        if Path:
+            self.AudioPlayer.setSource(QUrl.fromLocalFile(str(Path)))
+            self.AudioPlayer.play()
+        else:
+            self.AudioPlayer.setSource(QUrl())
+            QMessageBox.warning(self, "Song not downloaded", f"Please download '{title}' first before playing!")
+    
+    def eventFilter(self, source, event):
+        if event.type() == QEvent.Type.Resize and isinstance(source, QLabel):
+            text = source.title
+            metrics = QFontMetrics(source.font())
+            elided = metrics.elidedText(text, Qt.TextElideMode.ElideRight, source.width())
+            source.setText(elided)
+                
+        return super().eventFilter(source, event)
     
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -365,11 +421,16 @@ class Player(QWidget):
         self.SongImage.setPixmap(scaled)
         self.SongImage.setFixedSize(CoverSize, CoverSize)
 
-        NavBtnSize = int(CoverSize * 0.17)
-        for btn in self.NavBtns.values():
-            btn.setStyleSheet(f"border-radius: {int(NavBtnSize/2)}px;")
-            btn.setFixedSize(NavBtnSize, NavBtnSize)
-            btn.setIconSize(QSize(int(NavBtnSize*0.5), int(NavBtnSize*0.5)))
+        ModeBtnSize = int(CoverSize * 0.17)
+        IconSiz = int(ModeBtnSize * 0.5)
+        spacing = int(ModeBtnSize * 0.1)
+        for btn in self.ModeBtns.values():
+            btn.setStyleSheet(f"border-radius: {int(ModeBtnSize/2)}px; font-size: {int(ModeBtnSize*0.4)}px; ")
+            btn.setIconSize(QSize(IconSiz, IconSiz))
+            if btn.property("active"):
+                btn.setFixedSize(btn.sizeHint().width(), ModeBtnSize)
+            else:
+                btn.setFixedSize(ModeBtnSize, ModeBtnSize)
 
         NavSiz = int(self.PlayWin.width() * 0.05)
         PlaySiz = int(NavSiz * 1.5)

@@ -54,6 +54,10 @@
     font-size: 18px;
 }
 
+#PlayWin #ModeBtn {
+    font-weight: bold;
+}
+
 QSlider::groove:horizontal { background: hsl(220, 40%, 20%); }
 QSlider::handle:horizontal { background: hsl(200, 100%, 40%); }
 QSlider::sub-page:horizontal { background: hsl(200, 80%, 50%); }
