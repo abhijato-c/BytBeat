@@ -155,6 +155,19 @@ def AddCoverArt(SongPath: Path, ImgPath: Path, ext: str):
         print("Unsupported file extension")
         return
 
+def CleanEnv():
+    # Bodged fix for ffmpeg failing in the package
+    env = os.environ.copy()
+    if "LD_LIBRARY_PATH_ORIG" in env:
+        env["LD_LIBRARY_PATH"] = env["LD_LIBRARY_PATH_ORIG"]
+    elif "LD_LIBRARY_PATH" in env:
+        del env["LD_LIBRARY_PATH"]
+    return env
+
+def DenoPath():
+    name = 'JS/deno.exe' if platform.system() == "Windows" else 'JS/deno'
+    return ResourcePath(name)
+
 def DownloadSong(id: str, title: str, encoding: str = 'mp3', artist: str = '', genre: str = ''):
     global TempFolder, MusicDir, ImageDir, SongDF
 
@@ -168,11 +181,12 @@ def DownloadSong(id: str, title: str, encoding: str = 'mp3', artist: str = '', g
     FinalPath = MusicDir / f"{title}.{encoding}"
 
     try:
+        print(DenoPath())
         video = YoutubeDL({
             'format':'251', #Highest quality as far as I've found out
             'paths':{'home':str(TempFolder)},
             'outtmpl':TempFilename,
-            'javascript_runtime': 'quickjs',
+            'js_runtimes': {'deno': {'path': DenoPath()}},
         })
         video.download(['https://www.youtube.com/watch?v='+id])
     except:
@@ -196,7 +210,7 @@ def DownloadSong(id: str, title: str, encoding: str = 'mp3', artist: str = '', g
 
     # Convert to desired format
     try:
-        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, env=CleanEnv())
         os.remove(TempPath)
         
     except subprocess.CalledProcessError as e:
@@ -232,6 +246,10 @@ def DeleteSongFromDisk(title: str):
         if fpath.exists():
             try: os.remove(fpath)
             except Exception as e: print(f"Error deleting file: {e}")
+    
+    if (ImageDir / f"{title}.jpg").exists():
+        try: os.remove(ImageDir / f"{title}.jpg")
+        except Exception as e: print(f"Error deleting image: {e}")
 
 def UpdateSongDetails(title: str, NewTitle: str | None = None, artist: str | None = None, genre: str | None = None, URL: str | None = None):
     global SongDF, TempFolder, MusicDir
@@ -241,6 +259,11 @@ def UpdateSongDetails(title: str, NewTitle: str | None = None, artist: str | Non
     if NewTitle != None: SongDF.at[idx, 'Title'] = NewTitle
     if artist != None: SongDF.at[idx, 'Artist'] = artist
     if genre != None: SongDF.at[idx, 'Genre'] = genre
+
+    # Update image
+    if NewTitle and (ImageDir / f"{title}.jpg").is_file():
+        NewImgPath = ImageDir / f"{NewTitle}.jpg"
+        os.replace(ImageDir / f"{title}.jpg", NewImgPath)
 
     # Update metadata
     for ext in ['mp3', 'flac', 'm4a']:

@@ -44,7 +44,7 @@ class Downloader(QWidget):
         self.table.setAlternatingRowColors(True)
         
         self.table.doubleClicked.connect(self.PlaySong)
-        self.table.itemSelectionChanged.connect(self.SelectionChanged)
+        self.table.itemSelectionChanged.connect(self.RefreshSelection)
         self.table.customContextMenuRequested.connect(self.ShowContextMenu)
 
         self.MainLayout.addWidget(self.table)
@@ -202,10 +202,10 @@ class Downloader(QWidget):
             self.table.setItem(row_idx, 2, make_item(row['Genre']))
             self.table.setItem(row_idx, 3, make_item(row['Status'], True))
         
-        self.SelectionChanged()
+        self.RefreshSelection()
         self.table.blockSignals(False)
     
-    def SelectionChanged(self):
+    def RefreshSelection(self):
         rows = self.table.selectionModel().selectedRows()
         titles = [self.table.item(row.row(), 0).text() for row in rows]
         self.SelectionUpdate.emit(titles)

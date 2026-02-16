@@ -59,7 +59,7 @@ class InitWorker(QThread):
         bk.Init()
         try:
             if not bk.IsFfmpegInstalled():
-                self.status.emit("Downloading FFmpeg (this may take a minute)...")
+                self.status.emit("Downloading FFmpeg. \n If this takes too long, check your internet connection, or try downloading manually.")
                 bk.LocalFFMPEG()
             
             # Final check

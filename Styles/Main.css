@@ -30,3 +30,11 @@ QPushButton[class="danger"]:disabled {
     color: hsl(220, 20%, 40%); 
     border-color: rgb(40, 10, 10); 
 }
+
+QLineEdit {
+    background-color: hsl(220, 40%, 20%);
+    border: 1px solid hsl(220, 30%, 40%);
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: hsl(0, 0%, 90%);
+}

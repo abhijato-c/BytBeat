@@ -9,8 +9,7 @@ from PyQt6.QtWidgets import (
 )
 
 '''
-todo: 
-volume slider
+todo:
 Time label
 Keyboard shortcuts (space for play/pause, left/right for prev/next)
 '''
@@ -263,7 +262,7 @@ class Player(QWidget):
 
         self.AnimGroup.start()
     
-    def AddSongBtn(self, title):
+    def AddSongBtn(self, title, ind):
         artist = bk.GetSongDetail(title, 'Artist')
         if not artist: artist = "Unknown Artist"
         genre = bk.GetSongDetail(title, 'Genre')
@@ -320,19 +319,22 @@ class Player(QWidget):
         if title in self.SongButtons.keys():
             self.SongButtons[title].setParent(None)
         self.SongButtons[title] = btn
-        self.SidebarLayout.addWidget(btn)
+        self.SidebarLayout.insertWidget(ind, btn, alignment = Qt.AlignmentFlag.AlignTop)
     
     def RefreshList(self):
         titles = [row['Title'] for index, row in bk.SongDF.iterrows()]
-        for title in titles:
-            self.AddSongBtn(title)
+        for i, title in enumerate(titles):
+            self.AddSongBtn(title, i)
 
         extras = [title for title, btn in self.SongButtons.items() if title not in titles]
         for title in extras:
             self.SongButtons[title].setParent(None)
             del self.SongButtons[title]
         
-        if self.CurrentSong and self.AudioPlayer.source().isEmpty() and bk.GetSongDetail(self.CurrentSong, 'Status') == "Downloaded":
+        if self.CurrentSong not in self.SongButtons.keys():
+            self.CurrentSong = None
+            self.RefreshSelection()
+        elif self.AudioPlayer.source().isEmpty() and bk.GetSongDetail(self.CurrentSong, 'Status') == "Downloaded":
             self.PlaySong(self.CurrentSong)
             self.AudioPlayer.pause()
         
@@ -359,14 +361,14 @@ class Player(QWidget):
         NewBtn.style().polish(NewBtn)
 
         self.CurrentSong = title
-        self.SelectionUpdate.emit([title])
+        self.RefreshSelection()
 
         self.SongTitle.setText(title)
         artist = bk.GetSongDetail(title, 'Artist')
         if not artist: artist = "Unknown Artist"
         self.SongArtist.setText(artist)
 
-        pixmap = QPixmap(str(bk.ImageDir / (title+'.jpg')))
+        pixmap = QPixmap(str(bk.ImageDir / (title+'.jpg')) if (bk.ImageDir / (title+'.jpg')).is_file() else bk.ResourcePath('Static/Note.png'))
         self.SongImage.pix = pixmap
         scaled = pixmap.scaled(
             self.SongImage.width(), self.SongImage.height(),
@@ -381,6 +383,9 @@ class Player(QWidget):
         else:
             self.AudioPlayer.setSource(QUrl())
             QMessageBox.warning(self, "Song not downloaded", f"Please download '{title}' first before playing!")
+    
+    def RefreshSelection(self):
+        self.SelectionUpdate.emit([self.CurrentSong] if self.CurrentSong else [])
     
     def eventFilter(self, source, event):
         if event.type() == QEvent.Type.Resize and isinstance(source, QLabel):

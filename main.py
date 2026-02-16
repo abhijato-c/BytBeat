@@ -1,6 +1,5 @@
 import sys
 import Backend as bk
-from time import sleep
 
 from PopupDialogs import AddSongDialog, EditSongDialog
 from TaskThreads import DownloadWorker, ImageWorker, InitWorker
@@ -21,7 +20,7 @@ class MainWindow(QMainWindow):
 
         self.setWindowIcon(QIcon(bk.ResourcePath('Static/logo.ico')))
         self.setWindowTitle("BytBeat")
-        self.setGeometry(100, 100, 1100, 600)
+        self.setGeometry(100, 100, 1100, 700)
         self.setStyleSheet(bk.LoadStylesheet('Main'))
         
         MainWidget = QWidget()
@@ -41,7 +40,6 @@ class MainWindow(QMainWindow):
         self.SetupWin()
 
         self.ModeChanged("Downloader")
-        self.UpdateSelection([])
         self.RefreshList()
     
     def FfmpegCheck(self):
@@ -148,12 +146,12 @@ class MainWindow(QMainWindow):
         self.Win = QStackedWidget()
 
         self.Downloader = Downloader()
-        self.Downloader.SelectionUpdate.connect(self.UpdateSelection)
+        self.Downloader.SelectionUpdate.connect(lambda titles: self.UpdateSelection(titles, "Downloader"))
         self.Downloader.ContextUpdate.connect(self.ShowContextMenu)
         self.Win.addWidget(self.Downloader)
 
         self.Player = Player()
-        self.Player.SelectionUpdate.connect(self.UpdateSelection)
+        self.Player.SelectionUpdate.connect(lambda titles: self.UpdateSelection(titles, "Player"))
         self.Win.addWidget(self.Player)
 
         self.MainLayout.addWidget(self.Win)
@@ -164,11 +162,13 @@ class MainWindow(QMainWindow):
             self.DownloaderTab.setProperty("active", True)
             self.PlayerTab.setProperty("active", False)
             self.Player.AudioPlayer.pause()
+            self.Downloader.RefreshSelection()
             self.Win.setCurrentIndex(0)
         elif name == "Player":
             self.DownloaderTab.setProperty("active", False)
             self.PlayerTab.setProperty("active", True)
             self.Downloader.AudioPlayer.pause()
+            self.Player.RefreshSelection()
             self.Win.setCurrentIndex(1)
         
         self.DownloaderTab.style().unpolish(self.DownloaderTab)
@@ -179,7 +179,9 @@ class MainWindow(QMainWindow):
     def ShowContextMenu(self, pos):
         self.SongMenu.exec(pos)
 
-    def UpdateSelection(self, titles):
+    def UpdateSelection(self, titles, source):
+        if source != self.Mode: return
+
         self.Selection = titles
         count = len(titles)
         

@@ -1,0 +1,2 @@
+JS/deno filter=lfs diff=lfs merge=lfs -text
+JS/deno.exe filter=lfs diff=lfs merge=lfs -text
